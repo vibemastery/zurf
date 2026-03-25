@@ -10,13 +10,13 @@ import {captureEnv, restoreEnv} from '../helpers/env-sandbox.js'
 const packageRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const ENV_KEYS = ['BROWSERBASE_API_KEY', 'XDG_CONFIG_HOME'] as const
 
-describe('search without API key', () => {
+describe('fetch', () => {
   let tmp: string
   let envSnapshot: Map<string, string | undefined>
 
   beforeEach(() => {
     envSnapshot = captureEnv(ENV_KEYS)
-    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'zurf-search-'))
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'zurf-fetch-'))
     delete process.env.BROWSERBASE_API_KEY
     process.env.XDG_CONFIG_HOME = path.join(tmp, 'empty-xdg')
   })
@@ -26,11 +26,18 @@ describe('search without API key', () => {
     restoreEnv(envSnapshot)
   })
 
-  it('emits JSON error with --json', async () => {
-    const {error, stdout} = await runCommand('search "test query" --json', packageRoot)
+  it('emits JSON error when API key is missing', async () => {
+    const {error, stdout} = await runCommand('fetch https://example.com --json', packageRoot)
     expect(error).to.be.instanceOf(Error)
     const j = JSON.parse(stdout.trim())
     expect(j.error).to.have.property('message')
     expect(j.error.message as string).to.contain('API key')
+  })
+
+  it('rejects invalid URL before requiring API key', async () => {
+    const {error, stdout} = await runCommand('fetch "not a url" --json', packageRoot)
+    expect(error).to.be.instanceOf(Error)
+    const j = JSON.parse(stdout.trim())
+    expect(j.error.message as string).to.contain('Invalid URL')
   })
 })

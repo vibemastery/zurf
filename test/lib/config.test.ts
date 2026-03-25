@@ -11,18 +11,17 @@ import {
   whichApiKeySource,
   writeApiKeyConfig,
 } from '../../src/lib/config.js'
+import {captureEnv, restoreEnv} from '../helpers/env-sandbox.js'
+
+const ENV_KEYS = ['BROWSERBASE_API_KEY', 'HOME', 'XDG_CONFIG_HOME'] as const
 
 describe('config', () => {
   let tmp: string
-  let prevXdg: string | undefined
-  let prevHome: string | undefined
-  let prevBbKey: string | undefined
+  let envSnapshot: Map<string, string | undefined>
 
   beforeEach(() => {
+    envSnapshot = captureEnv(ENV_KEYS)
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'zurf-cfg-'))
-    prevXdg = process.env.XDG_CONFIG_HOME
-    prevHome = process.env.HOME
-    prevBbKey = process.env.BROWSERBASE_API_KEY
     process.env.XDG_CONFIG_HOME = path.join(tmp, 'xdg-config')
     process.env.HOME = tmp
     delete process.env.BROWSERBASE_API_KEY
@@ -30,23 +29,7 @@ describe('config', () => {
 
   afterEach(() => {
     fs.rmSync(tmp, {force: true, recursive: true})
-    if (prevXdg === undefined) {
-      delete process.env.XDG_CONFIG_HOME
-    } else {
-      process.env.XDG_CONFIG_HOME = prevXdg
-    }
-
-    if (prevHome === undefined) {
-      delete process.env.HOME
-    } else {
-      process.env.HOME = prevHome
-    }
-
-    if (prevBbKey === undefined) {
-      delete process.env.BROWSERBASE_API_KEY
-    } else {
-      process.env.BROWSERBASE_API_KEY = prevBbKey
-    }
+    restoreEnv(envSnapshot)
   })
 
   it('resolveApiKey uses flag over env', () => {
@@ -65,14 +48,15 @@ describe('config', () => {
     const proj = path.join(tmp, 'proj')
     const zurfDir = path.join(proj, '.zurf')
     fs.mkdirSync(zurfDir, {recursive: true})
-    await writeApiKeyConfig(path.join(zurfDir, 'config.json'), 'local-key')
+    const localFile = path.join(zurfDir, 'config.json')
+    await writeApiKeyConfig(localFile, 'local-key')
 
     const g = globalConfigPath()
     await fs.promises.mkdir(path.dirname(g), {recursive: true})
     await writeApiKeyConfig(g, 'global-key')
 
     const r = resolveApiKey({cwd: proj})
-    expect(r).to.deep.include({apiKey: 'local-key', source: 'local'})
+    expect(r).to.deep.include({apiKey: 'local-key', path: localFile, source: 'local'})
   })
 
   it('findLocalConfigPath walks up to parent .zurf', async () => {
@@ -81,16 +65,30 @@ describe('config', () => {
     fs.mkdirSync(nested, {recursive: true})
     const zurfDir = path.join(proj, '.zurf')
     fs.mkdirSync(zurfDir, {recursive: true})
-    await writeApiKeyConfig(path.join(zurfDir, 'config.json'), 'walk-up')
+    const localFile = path.join(zurfDir, 'config.json')
+    await writeApiKeyConfig(localFile, 'walk-up')
 
     const found = findLocalConfigPath(nested)
-    expect(found).to.equal(path.join(zurfDir, 'config.json'))
+    expect(found).to.equal(localFile)
     const r = resolveApiKey({cwd: nested})
-    expect(r).to.deep.include({apiKey: 'walk-up', source: 'local'})
+    expect(r).to.deep.include({apiKey: 'walk-up', path: localFile, source: 'local'})
   })
 
   it('whichApiKeySource returns none when nothing set', () => {
     expect(whichApiKeySource({}).kind).to.equal('none')
+  })
+
+  it('whichApiKeySource matches resolveApiKey for global file', async () => {
+    const g = globalConfigPath()
+    await fs.promises.mkdir(path.dirname(g), {recursive: true})
+    await writeApiKeyConfig(g, 'gk')
+    const resolved = resolveApiKey({})
+    const which = whichApiKeySource({})
+    expect(resolved.source).to.equal('global')
+    expect(which.kind).to.equal('global')
+    if (resolved.source === 'global' && which.kind === 'global') {
+      expect(which.path).to.equal(resolved.path)
+    }
   })
 
   it('localConfigPathForCwd joins .zurf/config.json', () => {

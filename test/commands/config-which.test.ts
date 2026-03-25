@@ -6,35 +6,25 @@ import path from 'node:path'
 import {fileURLToPath} from 'node:url'
 
 import {writeApiKeyConfig} from '../../src/lib/config.js'
+import {captureEnv, restoreEnv} from '../helpers/env-sandbox.js'
 
 const packageRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+const ENV_KEYS = ['BROWSERBASE_API_KEY', 'XDG_CONFIG_HOME'] as const
 
 describe('config which', () => {
   let xdg: string
-  let prevXdg: string | undefined
-  let prevBb: string | undefined
+  let envSnapshot: Map<string, string | undefined>
 
   beforeEach(() => {
+    envSnapshot = captureEnv(ENV_KEYS)
     xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'zurf-which-'))
-    prevXdg = process.env.XDG_CONFIG_HOME
-    prevBb = process.env.BROWSERBASE_API_KEY
     process.env.XDG_CONFIG_HOME = xdg
     delete process.env.BROWSERBASE_API_KEY
   })
 
   afterEach(() => {
     fs.rmSync(xdg, {force: true, recursive: true})
-    if (prevXdg === undefined) {
-      delete process.env.XDG_CONFIG_HOME
-    } else {
-      process.env.XDG_CONFIG_HOME = prevXdg
-    }
-
-    if (prevBb === undefined) {
-      delete process.env.BROWSERBASE_API_KEY
-    } else {
-      process.env.BROWSERBASE_API_KEY = prevBb
-    }
+    restoreEnv(envSnapshot)
   })
 
   it('reports env when BROWSERBASE_API_KEY is set', async () => {

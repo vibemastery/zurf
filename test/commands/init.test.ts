@@ -5,18 +5,21 @@ import * as os from 'node:os'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
 
+import {captureEnv, restoreEnv} from '../helpers/env-sandbox.js'
+
 const packageRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+const ENV_KEYS = ['BROWSERBASE_API_KEY', 'XDG_CONFIG_HOME'] as const
 
 describe('init', () => {
   let xdg: string
-  let prevXdg: string | undefined
   let cwd: string
   let prevCwd: string
+  let envSnapshot: Map<string, string | undefined>
 
   beforeEach(() => {
+    envSnapshot = captureEnv(ENV_KEYS)
     xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'zurf-init-xdg-'))
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'zurf-init-cwd-'))
-    prevXdg = process.env.XDG_CONFIG_HOME
     process.env.XDG_CONFIG_HOME = xdg
     prevCwd = process.cwd()
     process.chdir(cwd)
@@ -27,11 +30,7 @@ describe('init', () => {
     process.chdir(prevCwd)
     fs.rmSync(xdg, {force: true, recursive: true})
     fs.rmSync(cwd, {force: true, recursive: true})
-    if (prevXdg === undefined) {
-      delete process.env.XDG_CONFIG_HOME
-    } else {
-      process.env.XDG_CONFIG_HOME = prevXdg
-    }
+    restoreEnv(envSnapshot)
   })
 
   it('writes global config under XDG_CONFIG_HOME', async () => {
