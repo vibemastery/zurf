@@ -46,11 +46,11 @@ $ zurf fetch https://example.com --json
 # Usage
 <!-- usage -->
 ```sh-session
-$ npm install -g zurf
+$ npm install -g @vibemastery/zurf
 $ zurf COMMAND
 running command...
 $ zurf (--version)
-zurf/0.1.0 linux-x64 node-v24.14.0
+@vibemastery/zurf/0.2.0 linux-x64 node-v24.14.0
 $ zurf --help [COMMAND]
 USAGE
   $ zurf COMMAND
