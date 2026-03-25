@@ -3,13 +3,16 @@ import type {Command} from '@oclif/core'
 import {createBrowserbaseClient, MissingApiKeyError} from './browserbase-client.js'
 import {cliError} from './cli-errors.js'
 
-export function getBrowserbaseClientOrExit(
+export async function getBrowserbaseClientOrExit(
   command: Command,
-  flags: {'api-key'?: string; json: boolean},
-  options?: {cwd?: string},
-): ReturnType<typeof createBrowserbaseClient> {
+  flags: {json: boolean},
+  options: {cwd?: string; globalConfigDir: string},
+): Promise<Awaited<ReturnType<typeof createBrowserbaseClient>>> {
   try {
-    return createBrowserbaseClient({cwd: options?.cwd, flagKey: flags['api-key']})
+    return await createBrowserbaseClient({
+      cwd: options.cwd,
+      globalConfigDir: options.globalConfigDir,
+    })
   } catch (error) {
     if (error instanceof MissingApiKeyError) {
       cliError({command, exitCode: 2, json: flags.json, message: error.message})

@@ -1,7 +1,5 @@
 import type {Command} from '@oclif/core'
 
-import {APIError} from '@browserbasehq/sdk'
-
 import {printErrorJson} from './json-output.js'
 
 export type CliErrorOptions = {
@@ -34,8 +32,13 @@ export function errorMessage(err: unknown): string {
 }
 
 export function errorStatus(err: unknown): number | undefined {
-  if (err instanceof APIError) {
-    return err.status
+  if (
+    err !== null &&
+    typeof err === 'object' &&
+    'status' in err &&
+    typeof (err as {status: unknown}).status === 'number'
+  ) {
+    return (err as {status: number}).status
   }
 
   return undefined

@@ -1,5 +1,4 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import path from 'node:path'
 
 export const ZURF_DIR_NAME = '.zurf'
@@ -9,7 +8,6 @@ export type ResolvedApiKey =
   | {apiKey: string; path: string; source: 'global'}
   | {apiKey: string; path: string; source: 'local'}
   | {apiKey: string; source: 'env'}
-  | {apiKey: string; source: 'flag'}
   | {source: 'none'}
 
 /** Resolved non-empty API key (excludes `none`). */
@@ -19,22 +17,11 @@ export interface ConfigFileShape {
   apiKey?: string
 }
 
-export function globalConfigDir(): string {
-  const xdg = process.env.XDG_CONFIG_HOME
-  if (xdg && path.isAbsolute(xdg)) {
-    return path.join(xdg, 'zurf')
-  }
-
-  if (process.platform === 'win32') {
-    const appData = process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming')
-    return path.join(appData, 'zurf')
-  }
-
-  return path.join(os.homedir(), '.config', 'zurf')
-}
-
-export function globalConfigPath(): string {
-  return path.join(globalConfigDir(), CONFIG_FILENAME)
+/**
+ * Path to global `config.json` under oclif's `this.config.configDir` (same rules as @oclif/core `Config.dir('config')` for `dirname` zurf).
+ */
+export function globalConfigFilePath(oclifConfigDir: string): string {
+  return path.join(oclifConfigDir, CONFIG_FILENAME)
 }
 
 export function localConfigPathForCwd(cwd: string = process.cwd()): string {
@@ -72,13 +59,8 @@ function readApiKeyFromFile(filePath: string): string | undefined {
   }
 }
 
-export function resolveApiKey(options: {cwd?: string; flagKey?: string}): ResolvedApiKey {
+export function resolveApiKey(options: {cwd?: string; globalConfigDir: string}): ResolvedApiKey {
   const cwd = options.cwd ?? process.cwd()
-  const trimmedFlag = options.flagKey?.trim()
-
-  if (trimmedFlag) {
-    return {apiKey: trimmedFlag, source: 'flag'}
-  }
 
   const envKey = process.env.BROWSERBASE_API_KEY?.trim()
   if (envKey) {
@@ -93,7 +75,7 @@ export function resolveApiKey(options: {cwd?: string; flagKey?: string}): Resolv
     }
   }
 
-  const gPath = globalConfigPath()
+  const gPath = globalConfigFilePath(options.globalConfigDir)
   const globalKey = readApiKeyFromFile(gPath)
   if (globalKey) {
     return {apiKey: globalKey, path: gPath, source: 'global'}
