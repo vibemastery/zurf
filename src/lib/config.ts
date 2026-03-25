@@ -15,13 +15,6 @@ export type ResolvedApiKey =
 /** Resolved non-empty API key (excludes `none`). */
 export type ActiveApiKey = Extract<ResolvedApiKey, {apiKey: string}>
 
-export type WhichSource =
-  | {kind: 'env'}
-  | {kind: 'flag'}
-  | {kind: 'global'; path: string}
-  | {kind: 'local'; path: string}
-  | {kind: 'none'}
-
 export interface ConfigFileShape {
   apiKey?: string
 }
@@ -107,32 +100,6 @@ export function resolveApiKey(options: {cwd?: string; flagKey?: string}): Resolv
   }
 
   return {source: 'none'}
-}
-
-/** Effective key source for debugging (no secret values). Maps from {@link resolveApiKey} only. */
-export function whichApiKeySource(options: {cwd?: string; flagKey?: string}): WhichSource {
-  const resolved = resolveApiKey(options)
-  switch (resolved.source) {
-    case 'env': {
-      return {kind: 'env'}
-    }
-
-    case 'flag': {
-      return {kind: 'flag'}
-    }
-
-    case 'global': {
-      return {kind: 'global', path: resolved.path}
-    }
-
-    case 'local': {
-      return {kind: 'local', path: resolved.path}
-    }
-
-    case 'none': {
-      return {kind: 'none'}
-    }
-  }
 }
 
 export async function writeApiKeyConfig(targetPath: string, apiKey: string): Promise<void> {

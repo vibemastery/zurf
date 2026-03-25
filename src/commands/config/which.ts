@@ -1,6 +1,6 @@
 import {Command, Flags} from '@oclif/core'
 
-import {globalConfigPath, whichApiKeySource} from '../../lib/config.js'
+import {globalConfigPath, resolveApiKey} from '../../lib/config.js'
 import {zurfBaseFlags} from '../../lib/flags.js'
 import {printJson} from '../../lib/json-output.js'
 
@@ -9,6 +9,7 @@ export default class ConfigWhich extends Command {
   static examples = ['<%= config.bin %> config which', '<%= config.bin %> config which --json']
   static flags = {
     ...zurfBaseFlags,
+    // Same `-k` / resolution as `zurfBaseFlags['api-key']`; description is specific to this command.
     'api-key': Flags.string({
       char: 'k',
       description: 'Simulate passing --api-key on other commands',
@@ -17,10 +18,10 @@ export default class ConfigWhich extends Command {
 
   async run(): Promise<void> {
     const {flags} = await this.parse(ConfigWhich)
-    const which = whichApiKeySource({flagKey: flags['api-key']})
+    const resolved = resolveApiKey({flagKey: flags['api-key']})
 
     if (flags.json) {
-      switch (which.kind) {
+      switch (resolved.source) {
         case 'env': {
           printJson({envVar: 'BROWSERBASE_API_KEY', source: 'env'})
           break
@@ -32,12 +33,12 @@ export default class ConfigWhich extends Command {
         }
 
         case 'global': {
-          printJson({path: which.path, source: 'global'})
+          printJson({path: resolved.path, source: 'global'})
           break
         }
 
         case 'local': {
-          printJson({path: which.path, source: 'local'})
+          printJson({path: resolved.path, source: 'local'})
           break
         }
 
@@ -55,7 +56,7 @@ export default class ConfigWhich extends Command {
       return
     }
 
-    switch (which.kind) {
+    switch (resolved.source) {
       case 'env': {
         this.log('API key source: environment variable BROWSERBASE_API_KEY')
         break
@@ -67,12 +68,12 @@ export default class ConfigWhich extends Command {
       }
 
       case 'global': {
-        this.log(`API key source: global file ${which.path}`)
+        this.log(`API key source: global file ${resolved.path}`)
         break
       }
 
       case 'local': {
-        this.log(`API key source: local file ${which.path}`)
+        this.log(`API key source: local file ${resolved.path}`)
         break
       }
 

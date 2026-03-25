@@ -12,11 +12,14 @@ export type CliErrorOptions = {
   statusCode?: number | string
 }
 
-/** Thrown only if `command.exit` returns without throwing (e.g. test double). JSON is already on stdout. */
+/**
+ * Thrown only if `command.exit` returns without throwing (e.g. test double). JSON is already on stdout.
+ * Caught in `bin/run.js` / `bin/dev.js` so this does not surface as an unhandled rejection.
+ */
 export class CliJsonExitContractError extends Error {
   constructor() {
     super(
-      'zurf: command.exit() returned after JSON error output; refusing to call command.error() and corrupt stdout.',
+      'zurf internal error: command.exit() returned after JSON error output; fix the test double or oclif version.',
     )
     this.name = 'CliJsonExitContractError'
   }
