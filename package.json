@@ -62,6 +62,9 @@
       "@oclif/plugin-plugins",
       "@oclif/plugin-warn-if-update-available"
     ],
+    "macos": {
+      "identifier": "ai.vibemastery.zurf"
+    },
     "topicSeparator": " ",
     "topics": {
       "config": {
