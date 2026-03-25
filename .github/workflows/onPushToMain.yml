@@ -1,4 +1,4 @@
-name: version, tag and github release
+name: version, tag, release and publish
 
 on:
   push:
@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -32,6 +33,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
+          registry-url: 'https://registry.npmjs.org'
           cache: pnpm
       - name: Check if version already exists
         id: version-check
@@ -76,3 +78,12 @@ jobs:
           commit: ${{ github.ref_name }}
           token: ${{ github.token }}
           skipIfReleaseExists: true
+      - name: Publish to npm
+        if: ${{ steps.version-check.outputs.skipped == 'false' }}
+        run: |
+          npm install -g npm@latest
+          pnpm install
+          pnpm run build
+          pnpm run prepack
+          npm publish --provenance --access public
+          pnpm run postpack
