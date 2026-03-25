@@ -5,7 +5,7 @@ import path from 'node:path'
 
 import {
   findLocalConfigPath,
-  globalConfigPath,
+  globalConfigFilePath,
   localConfigPathForCwd,
   resolveApiKey,
   writeApiKeyConfig,
@@ -17,6 +17,7 @@ const ENV_KEYS = ['BROWSERBASE_API_KEY', 'HOME', 'XDG_CONFIG_HOME'] as const
 describe('config', () => {
   let tmp: string
   let envSnapshot: Map<string, string | undefined>
+  let globalConfigDir: string
 
   beforeEach(() => {
     envSnapshot = captureEnv(ENV_KEYS)
@@ -24,6 +25,7 @@ describe('config', () => {
     process.env.XDG_CONFIG_HOME = path.join(tmp, 'xdg-config')
     process.env.HOME = tmp
     delete process.env.BROWSERBASE_API_KEY
+    globalConfigDir = path.join(process.env.XDG_CONFIG_HOME, 'zurf')
   })
 
   afterEach(() => {
@@ -31,15 +33,9 @@ describe('config', () => {
     restoreEnv(envSnapshot)
   })
 
-  it('resolveApiKey uses flag over env', () => {
+  it('resolveApiKey uses env', () => {
     process.env.BROWSERBASE_API_KEY = 'from-env'
-    const r = resolveApiKey({flagKey: 'from-flag'})
-    expect(r).to.deep.include({apiKey: 'from-flag', source: 'flag'})
-  })
-
-  it('resolveApiKey uses env when no flag', () => {
-    process.env.BROWSERBASE_API_KEY = 'from-env'
-    const r = resolveApiKey({})
+    const r = resolveApiKey({globalConfigDir})
     expect(r).to.deep.include({apiKey: 'from-env', source: 'env'})
   })
 
@@ -50,11 +46,11 @@ describe('config', () => {
     const localFile = path.join(zurfDir, 'config.json')
     await writeApiKeyConfig(localFile, 'local-key')
 
-    const g = globalConfigPath()
+    const g = globalConfigFilePath(globalConfigDir)
     await fs.promises.mkdir(path.dirname(g), {recursive: true})
     await writeApiKeyConfig(g, 'global-key')
 
-    const r = resolveApiKey({cwd: proj})
+    const r = resolveApiKey({cwd: proj, globalConfigDir})
     expect(r).to.deep.include({apiKey: 'local-key', path: localFile, source: 'local'})
   })
 
@@ -69,19 +65,19 @@ describe('config', () => {
 
     const found = findLocalConfigPath(nested)
     expect(found).to.equal(localFile)
-    const r = resolveApiKey({cwd: nested})
+    const r = resolveApiKey({cwd: nested, globalConfigDir})
     expect(r).to.deep.include({apiKey: 'walk-up', path: localFile, source: 'local'})
   })
 
   it('resolveApiKey returns none when nothing set', () => {
-    expect(resolveApiKey({}).source).to.equal('none')
+    expect(resolveApiKey({globalConfigDir}).source).to.equal('none')
   })
 
   it('resolveApiKey returns global with path when global file has key', async () => {
-    const g = globalConfigPath()
+    const g = globalConfigFilePath(globalConfigDir)
     await fs.promises.mkdir(path.dirname(g), {recursive: true})
     await writeApiKeyConfig(g, 'gk')
-    const resolved = resolveApiKey({})
+    const resolved = resolveApiKey({globalConfigDir})
     expect(resolved.source).to.equal('global')
     if (resolved.source === 'global') {
       expect(resolved.path).to.equal(g)
