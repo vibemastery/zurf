@@ -1,4 +1,3 @@
-# test
 name: version, tag and github release
 
 on:
@@ -6,11 +5,32 @@ on:
     branches: [main]
 
 jobs:
-  release:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
       - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+      - run: pnpm install
+      - run: pnpm run test
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
       - name: Check if version already exists
         id: version-check
         run: |
@@ -41,7 +61,7 @@ jobs:
           pnpm install
           pnpm exec oclif readme
           if [ -n "$(git status --porcelain)" ]; then
-            git add .
+            git add README.md
             git commit -am "chore: update README.md"
             git push -u origin ${{ github.ref_name }}
           fi

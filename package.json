@@ -1,7 +1,7 @@
 {
   "name": "zurf",
   "description": "A lightweight CLI for searching and fetching web pages, powered by Browserbase.",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "author": "Luis Güette",
   "bin": {
     "zurf": "./bin/run.js"

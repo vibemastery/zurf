@@ -3,7 +3,7 @@
 **/.DS_Store
 /.idea
 /dist
-/.zurf
+**/.zurf
 *.tsbuildinfo
 /tmp
 /node_modules
