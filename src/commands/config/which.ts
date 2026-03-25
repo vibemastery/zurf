@@ -1,34 +1,26 @@
-import {Command, Flags} from '@oclif/core'
+import {Command} from '@oclif/core'
 
-import {globalConfigPath, resolveApiKey} from '../../lib/config.js'
+import {globalConfigFilePath, resolveApiKey} from '../../lib/config.js'
 import {zurfBaseFlags} from '../../lib/flags.js'
 import {printJson} from '../../lib/json-output.js'
 
 export default class ConfigWhich extends Command {
-  static description = 'Show where the Browserbase API key would be loaded from (no secret printed)'
+  static description = `Show where the Browserbase API key would be loaded from (no secret printed).
+Resolution order: BROWSERBASE_API_KEY, then project .zurf/config.json (walk-up), then global config in the CLI config directory.`
   static examples = ['<%= config.bin %> config which', '<%= config.bin %> config which --json']
   static flags = {
     ...zurfBaseFlags,
-    // Same `-k` / resolution as `zurfBaseFlags['api-key']`; description is specific to this command.
-    'api-key': Flags.string({
-      char: 'k',
-      description: 'Simulate passing --api-key on other commands',
-    }),
   }
+  static summary = 'Show where the API key is loaded from'
 
   async run(): Promise<void> {
     const {flags} = await this.parse(ConfigWhich)
-    const resolved = resolveApiKey({flagKey: flags['api-key']})
+    const resolved = resolveApiKey({globalConfigDir: this.config.configDir})
 
     if (flags.json) {
       switch (resolved.source) {
         case 'env': {
           printJson({envVar: 'BROWSERBASE_API_KEY', source: 'env'})
-          break
-        }
-
-        case 'flag': {
-          printJson({source: 'flag'})
           break
         }
 
@@ -44,7 +36,7 @@ export default class ConfigWhich extends Command {
 
         case 'none': {
           printJson({
-            globalConfigPath: globalConfigPath(),
+            globalConfigPath: globalConfigFilePath(this.config.configDir),
             hint: `Run \`${this.config.bin} init --global\` or \`${this.config.bin} init --local\`, or set BROWSERBASE_API_KEY.`,
             source: 'none',
           })
@@ -59,11 +51,6 @@ export default class ConfigWhich extends Command {
     switch (resolved.source) {
       case 'env': {
         this.log('API key source: environment variable BROWSERBASE_API_KEY')
-        break
-      }
-
-      case 'flag': {
-        this.log('API key source: --api-key / -k flag')
         break
       }
 

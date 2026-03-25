@@ -1,19 +1,20 @@
-import {Args, Command, Flags} from '@oclif/core'
+import {Args, Flags} from '@oclif/core'
 
-import {getBrowserbaseClientOrExit} from '../../lib/browserbase-command.js'
-import {cliError, errorMessage, errorStatus} from '../../lib/cli-errors.js'
+import {cliError} from '../../lib/cli-errors.js'
 import {zurfBaseFlags} from '../../lib/flags.js'
 import {printJson} from '../../lib/json-output.js'
 import {buildSearchJsonPayload, linesForHumanSearch} from '../../lib/search-output.js'
+import {ZurfBrowserbaseCommand} from '../../lib/zurf-browserbase-command.js'
 
-export default class Search extends Command {
+export default class Search extends ZurfBrowserbaseCommand {
   static args = {
     query: Args.string({
       description: 'Search query, max 200 characters (quote for multiple words)',
       required: true,
     }),
   }
-  static description = 'Search the web via Browserbase (Exa-powered)'
+  static description = `Search the web via Browserbase (Exa-powered).
+Requires authentication. Run \`zurf init --global\` or use a project key before first use.`
   static examples = [
     '<%= config.bin %> <%= command.id %> "browserbase documentation"',
     '<%= config.bin %> <%= command.id %> "laravel inertia" --num-results 5 --json',
@@ -28,6 +29,7 @@ export default class Search extends Command {
       min: 1,
     }),
   }
+  static summary = 'Search the web via Browserbase'
 
   async run(): Promise<void> {
     const {args, flags} = await this.parse(Search)
@@ -46,9 +48,7 @@ export default class Search extends Command {
       })
     }
 
-    const {client} = getBrowserbaseClientOrExit(this, flags)
-
-    try {
+    await this.runWithBrowserbase(flags, 'Searching the web', async (client) => {
       const response = await client.search.web({
         numResults: flags['num-results'],
         query,
@@ -62,14 +62,6 @@ export default class Search extends Command {
       for (const line of linesForHumanSearch(response)) {
         this.log(line)
       }
-    } catch (error) {
-      cliError({
-        command: this,
-        exitCode: 1,
-        json: flags.json,
-        message: errorMessage(error),
-        statusCode: errorStatus(error),
-      })
-    }
+    })
   }
 }

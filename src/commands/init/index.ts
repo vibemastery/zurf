@@ -2,7 +2,7 @@ import {Command, Flags} from '@oclif/core'
 import * as fs from 'node:fs/promises'
 
 import {cliError, errorMessage} from '../../lib/cli-errors.js'
-import {globalConfigPath, localConfigPathForCwd, writeApiKeyConfig} from '../../lib/config.js'
+import {globalConfigFilePath, localConfigPathForCwd, writeApiKeyConfig} from '../../lib/config.js'
 import {zurfBaseFlags} from '../../lib/flags.js'
 import {
   dotGitignoreMentionsZurf,
@@ -13,7 +13,8 @@ import {promptLine, readStdinIfPiped} from '../../lib/init-input.js'
 import {printJson} from '../../lib/json-output.js'
 
 export default class Init extends Command {
-  static description = 'Save your Browserbase API key to global or project config'
+  static description = `Save your Browserbase API key to global or project config.
+Global path follows oclif config (same as \`zurf config which\`).`
   static examples = [
     '<%= config.bin %> <%= command.id %> --global',
     '<%= config.bin %> <%= command.id %> --local',
@@ -22,36 +23,30 @@ export default class Init extends Command {
   static flags = {
     ...zurfBaseFlags,
     'api-key': Flags.string({
-      char: 'k',
-      description: 'API key (non-interactive); otherwise read from stdin pipe or prompt',
+      description:
+        'API key for non-interactive use. Prefer piping stdin or using a TTY prompt — values on the command line are visible in shell history and process listings.',
     }),
     gitignore: Flags.boolean({
       description: 'Append .zurf/ to ./.gitignore if that entry is missing',
     }),
     global: Flags.boolean({
-      description: 'Store API key in user config (~/.config/zurf or XDG equivalent)',
-      exclusive: ['local'],
+      description: 'Store API key in user config (oclif config dir for this CLI)',
+      exactlyOne: ['global', 'local'],
     }),
     local: Flags.boolean({
       description: 'Store API key in ./.zurf/config.json for this directory',
-      exclusive: ['global'],
+      exactlyOne: ['global', 'local'],
     }),
   }
+  static summary = 'Configure Browserbase API key storage'
 
   async run(): Promise<void> {
     const {flags} = await this.parse(Init)
 
-    if (!flags.global && !flags.local) {
-      cliError({
-        command: this,
-        exitCode: 2,
-        json: flags.json,
-        message: 'Specify exactly one of --global or --local.',
-      })
-    }
-
     const apiKey = await this.readApiKeyForInit(flags)
-    const targetPath = flags.global ? globalConfigPath() : localConfigPathForCwd()
+    const targetPath = flags.global
+      ? globalConfigFilePath(this.config.configDir)
+      : localConfigPathForCwd()
 
     try {
       await writeApiKeyConfig(targetPath, apiKey)
@@ -104,7 +99,7 @@ export default class Init extends Command {
         command: this,
         exitCode: 2,
         json: flags.json,
-        message: 'No API key provided. Use --api-key, pipe stdin, or run interactively in a TTY.',
+        message: 'No API key provided. Pipe stdin, use --api-key, or run interactively in a TTY.',
       })
     }
 

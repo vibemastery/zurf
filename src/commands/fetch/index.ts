@@ -1,9 +1,8 @@
-import {Args, Command, Flags} from '@oclif/core'
+import {Args, Flags} from '@oclif/core'
 import * as fs from 'node:fs/promises'
 import path from 'node:path'
 
-import {getBrowserbaseClientOrExit} from '../../lib/browserbase-command.js'
-import {cliError, errorMessage, errorStatus} from '../../lib/cli-errors.js'
+import {cliError} from '../../lib/cli-errors.js'
 import {
   buildFetchJsonPayload,
   HUMAN_BODY_PREVIEW_CHARS,
@@ -12,15 +11,17 @@ import {
 } from '../../lib/fetch-output.js'
 import {zurfBaseFlags} from '../../lib/flags.js'
 import {printJson} from '../../lib/json-output.js'
+import {ZurfBrowserbaseCommand} from '../../lib/zurf-browserbase-command.js'
 
-export default class Fetch extends Command {
+export default class Fetch extends ZurfBrowserbaseCommand {
   static args = {
     url: Args.string({
       description: 'URL to fetch',
       required: true,
     }),
   }
-  static description = 'Fetch a URL via Browserbase (no browser session; static HTML, 1 MB max)'
+  static description = `Fetch a URL via Browserbase (no browser session; static HTML, 1 MB max).
+Requires authentication. Run \`zurf init --global\` or use a project key before first use.`
   static examples = [
     '<%= config.bin %> <%= command.id %> https://example.com',
     '<%= config.bin %> <%= command.id %> https://example.com --json',
@@ -45,6 +46,7 @@ export default class Fetch extends Command {
       description: 'Route through Browserbase proxies (helps with some blocked sites)',
     }),
   }
+  static summary = 'Fetch a URL via Browserbase'
 
   async run(): Promise<void> {
     const {args, flags} = await this.parse(Fetch)
@@ -70,9 +72,7 @@ export default class Fetch extends Command {
       cliError({command: this, exitCode: 2, json: flags.json, message: `Invalid URL: ${url}`})
     }
 
-    const {client} = getBrowserbaseClientOrExit(this, flags)
-
-    try {
+    await this.runWithBrowserbase(flags, 'Fetching URL', async (client) => {
       const response = await client.fetchAPI.create({
         allowInsecureSsl: flags['allow-insecure-ssl'],
         allowRedirects: flags['allow-redirects'],
@@ -124,14 +124,6 @@ export default class Fetch extends Command {
       this.log(content.slice(0, HUMAN_BODY_PREVIEW_CHARS))
       this.log('')
       this.logToStderr(truncateNote(content.length))
-    } catch (error) {
-      cliError({
-        command: this,
-        exitCode: 1,
-        json: flags.json,
-        message: errorMessage(error),
-        statusCode: errorStatus(error),
-      })
-    }
+    })
   }
 }
