@@ -1,11 +1,11 @@
 import {Browserbase} from '@browserbasehq/sdk'
 
-import {resolveApiKey, type ResolvedApiKey} from './config.js'
+import {type ActiveApiKey, resolveApiKey} from './config.js'
 
 export function createBrowserbaseClient(options: {
   cwd?: string
-  flagKey?: string | undefined
-}): {client: Browserbase; resolution: ResolvedApiKey & {source: 'env' | 'flag' | 'global' | 'local'}} {
+  flagKey?: string
+}): {client: Browserbase; resolution: ActiveApiKey} {
   const resolution = resolveApiKey({cwd: options.cwd, flagKey: options.flagKey})
 
   if (resolution.source === 'none') {

@@ -5,11 +5,15 @@ import path from 'node:path'
 export const ZURF_DIR_NAME = '.zurf'
 export const CONFIG_FILENAME = 'config.json'
 
-export type ApiKeySource = 'env' | 'flag' | 'global' | 'local'
-
 export type ResolvedApiKey =
-  | {apiKey: string; source: ApiKeySource}
+  | {apiKey: string; path: string; source: 'global'}
+  | {apiKey: string; path: string; source: 'local'}
+  | {apiKey: string; source: 'env'}
+  | {apiKey: string; source: 'flag'}
   | {source: 'none'}
+
+/** Resolved non-empty API key (excludes `none`). */
+export type ActiveApiKey = Extract<ResolvedApiKey, {apiKey: string}>
 
 export type WhichSource =
   | {kind: 'env'}
@@ -75,7 +79,7 @@ function readApiKeyFromFile(filePath: string): string | undefined {
   }
 }
 
-export function resolveApiKey(options: {cwd?: string; flagKey?: string | undefined;}): ResolvedApiKey {
+export function resolveApiKey(options: {cwd?: string; flagKey?: string}): ResolvedApiKey {
   const cwd = options.cwd ?? process.cwd()
   const trimmedFlag = options.flagKey?.trim()
 
@@ -92,50 +96,43 @@ export function resolveApiKey(options: {cwd?: string; flagKey?: string | undefin
   if (localPath) {
     const key = readApiKeyFromFile(localPath)
     if (key) {
-      return {apiKey: key, source: 'local'}
+      return {apiKey: key, path: localPath, source: 'local'}
     }
   }
 
   const gPath = globalConfigPath()
-  if (fs.existsSync(gPath)) {
-    const key = readApiKeyFromFile(gPath)
-    if (key) {
-      return {apiKey: key, source: 'global'}
-    }
+  const globalKey = readApiKeyFromFile(gPath)
+  if (globalKey) {
+    return {apiKey: globalKey, path: gPath, source: 'global'}
   }
 
   return {source: 'none'}
 }
 
-/** Effective key source for debugging (no secret values). */
-export function whichApiKeySource(options: {cwd?: string; flagKey?: string | undefined;}): WhichSource {
-  const cwd = options.cwd ?? process.cwd()
+/** Effective key source for debugging (no secret values). Maps from {@link resolveApiKey} only. */
+export function whichApiKeySource(options: {cwd?: string; flagKey?: string}): WhichSource {
+  const resolved = resolveApiKey(options)
+  switch (resolved.source) {
+    case 'env': {
+      return {kind: 'env'}
+    }
 
-  if (options.flagKey?.trim()) {
-    return {kind: 'flag'}
-  }
+    case 'flag': {
+      return {kind: 'flag'}
+    }
 
-  if (process.env.BROWSERBASE_API_KEY?.trim()) {
-    return {kind: 'env'}
-  }
+    case 'global': {
+      return {kind: 'global', path: resolved.path}
+    }
 
-  const localPath = findLocalConfigPath(cwd)
-  if (localPath) {
-    const key = readApiKeyFromFile(localPath)
-    if (key) {
-      return {kind: 'local', path: localPath}
+    case 'local': {
+      return {kind: 'local', path: resolved.path}
+    }
+
+    case 'none': {
+      return {kind: 'none'}
     }
   }
-
-  const gPath = globalConfigPath()
-  if (fs.existsSync(gPath)) {
-    const key = readApiKeyFromFile(gPath)
-    if (key) {
-      return {kind: 'global', path: gPath}
-    }
-  }
-
-  return {kind: 'none'}
 }
 
 export async function writeApiKeyConfig(targetPath: string, apiKey: string): Promise<void> {
@@ -144,10 +141,4 @@ export async function writeApiKeyConfig(targetPath: string, apiKey: string): Pro
   const payload: ConfigFileShape = {apiKey: apiKey.trim()}
   const body = `${JSON.stringify(payload, null, 2)}\n`
   await fs.promises.writeFile(targetPath, body, {encoding: 'utf8', mode: 0o600})
-
-  try {
-    await fs.promises.chmod(targetPath, 0o600)
-  } catch {
-    // chmod may fail on some filesystems; ignore
-  }
 }
