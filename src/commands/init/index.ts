@@ -1,38 +1,16 @@
 import {Command, Flags} from '@oclif/core'
-import * as readline from 'node:readline'
+import * as fs from 'node:fs/promises'
 
-import {cliError} from '../../lib/cli-errors.js'
+import {cliError, errorMessage} from '../../lib/cli-errors.js'
 import {globalConfigPath, localConfigPathForCwd, writeApiKeyConfig} from '../../lib/config.js'
 import {zurfBaseFlags} from '../../lib/flags.js'
+import {
+  dotGitignoreMentionsZurf,
+  ensureZurfGitignoreEntry,
+  gitignorePathForCwd,
+} from '../../lib/gitignore-zurf.js'
+import {promptLine, readStdinIfPiped} from '../../lib/init-input.js'
 import {printJson} from '../../lib/json-output.js'
-
-async function readStdinIfPiped(): Promise<string | undefined> {
-  if (process.stdin.isTTY) {
-    return undefined
-  }
-
-  try {
-    const chunks: Buffer[] = []
-    for await (const chunk of process.stdin) {
-      chunks.push(chunk as Buffer)
-    }
-
-    const s = Buffer.concat(chunks).toString('utf8').trim()
-    return s.length > 0 ? s : undefined
-  } catch {
-    return undefined
-  }
-}
-
-function promptLine(question: string): Promise<string> {
-  const rl = readline.createInterface({input: process.stdin, output: process.stdout})
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      rl.close()
-      resolve(answer.trim())
-    })
-  })
-}
 
 export default class Init extends Command {
   static description = 'Save your Browserbase API key to global or project config'
@@ -46,6 +24,9 @@ export default class Init extends Command {
     'api-key': Flags.string({
       char: 'k',
       description: 'API key (non-interactive); otherwise read from stdin pipe or prompt',
+    }),
+    gitignore: Flags.boolean({
+      description: 'Append .zurf/ to ./.gitignore if that entry is missing',
     }),
     global: Flags.boolean({
       description: 'Store API key in user config (~/.config/zurf or XDG equivalent)',
@@ -69,8 +50,47 @@ export default class Init extends Command {
       })
     }
 
-    let apiKey = flags['api-key']?.trim()
+    const apiKey = await this.readApiKeyForInit(flags)
+    const targetPath = flags.global ? globalConfigPath() : localConfigPathForCwd()
 
+    try {
+      await writeApiKeyConfig(targetPath, apiKey)
+    } catch (error) {
+      cliError({command: this, exitCode: 1, json: flags.json, message: errorMessage(error)})
+    }
+
+    if (flags.gitignore) {
+      try {
+        await ensureZurfGitignoreEntry(gitignorePathForCwd())
+      } catch (error) {
+        cliError({command: this, exitCode: 1, json: flags.json, message: errorMessage(error)})
+      }
+    }
+
+    if (flags.json) {
+      printJson({ok: true, path: targetPath, scope: flags.global ? 'global' : 'local'})
+    } else {
+      this.log(`Saved API key to ${targetPath}`)
+      if (flags.local) {
+        let showTip = true
+        try {
+          const gi = await fs.readFile(gitignorePathForCwd(), 'utf8')
+          if (dotGitignoreMentionsZurf(gi)) {
+            showTip = false
+          }
+        } catch {
+          // no .gitignore yet
+        }
+
+        if (showTip) {
+          this.log('Tip: add .zurf/ to .gitignore so the key is not committed (or run with --gitignore).')
+        }
+      }
+    }
+  }
+
+  private async readApiKeyForInit(flags: {'api-key'?: string; json: boolean}): Promise<string> {
+    let apiKey = flags['api-key']?.trim()
     if (!apiKey) {
       apiKey = await readStdinIfPiped()
     }
@@ -88,22 +108,6 @@ export default class Init extends Command {
       })
     }
 
-    const targetPath = flags.global ? globalConfigPath() : localConfigPathForCwd()
-
-    try {
-      await writeApiKeyConfig(targetPath, apiKey)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      cliError({command: this, exitCode: 1, json: flags.json, message})
-    }
-
-    if (flags.json) {
-      printJson({ok: true, path: targetPath, scope: flags.global ? 'global' : 'local'})
-    } else {
-      this.log(`Saved API key to ${targetPath}`)
-      if (flags.local) {
-        this.log('Tip: add .zurf/ to .gitignore so the key is not committed.')
-      }
-    }
+    return apiKey
   }
 }

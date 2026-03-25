@@ -1,14 +1,15 @@
 import {Args, Command, Flags} from '@oclif/core'
 
-import {createBrowserbaseClient, MissingApiKeyError} from '../../lib/browserbase-client.js'
+import {getBrowserbaseClientOrExit} from '../../lib/browserbase-command.js'
 import {cliError, errorMessage, errorStatus} from '../../lib/cli-errors.js'
 import {zurfBaseFlags} from '../../lib/flags.js'
 import {printJson} from '../../lib/json-output.js'
+import {buildSearchJsonPayload, linesForHumanSearch} from '../../lib/search-output.js'
 
 export default class Search extends Command {
   static args = {
     query: Args.string({
-      description: 'Search query (quote for multiple words)',
+      description: 'Search query, max 200 characters (quote for multiple words)',
       required: true,
     }),
   }
@@ -45,16 +46,7 @@ export default class Search extends Command {
       })
     }
 
-    let client
-    try {
-      ;({client} = createBrowserbaseClient({flagKey: flags['api-key']}))
-    } catch (error) {
-      if (error instanceof MissingApiKeyError) {
-        cliError({command: this, exitCode: 2, json: flags.json, message: error.message})
-      }
-
-      throw error
-    }
+    const {client} = getBrowserbaseClientOrExit(this, flags)
 
     try {
       const response = await client.search.web({
@@ -63,25 +55,12 @@ export default class Search extends Command {
       })
 
       if (flags.json) {
-        printJson({
-          query: response.query,
-          requestId: response.requestId,
-          results: response.results,
-        })
+        printJson(buildSearchJsonPayload(response))
         return
       }
 
-      this.log(`requestId: ${response.requestId}`)
-      this.log('')
-
-      for (const [i, r] of response.results.entries()) {
-        this.log(`${i + 1}. ${r.title}`)
-        this.log(`   ${r.url}`)
-        if (r.author) {
-          this.log(`   author: ${r.author}`)
-        }
-
-        this.log('')
+      for (const line of linesForHumanSearch(response)) {
+        this.log(line)
       }
     } catch (error) {
       cliError({

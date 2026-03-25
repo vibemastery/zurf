@@ -1,12 +1,17 @@
 import {Args, Command, Flags} from '@oclif/core'
 import * as fs from 'node:fs/promises'
+import path from 'node:path'
 
-import {createBrowserbaseClient, MissingApiKeyError} from '../../lib/browserbase-client.js'
+import {getBrowserbaseClientOrExit} from '../../lib/browserbase-command.js'
 import {cliError, errorMessage, errorStatus} from '../../lib/cli-errors.js'
+import {
+  buildFetchJsonPayload,
+  HUMAN_BODY_PREVIEW_CHARS,
+  humanFetchMetaLines,
+  truncateNote,
+} from '../../lib/fetch-output.js'
 import {zurfBaseFlags} from '../../lib/flags.js'
 import {printJson} from '../../lib/json-output.js'
-
-const HUMAN_BODY_PREVIEW_CHARS = 8000
 
 export default class Fetch extends Command {
   static args = {
@@ -45,29 +50,27 @@ export default class Fetch extends Command {
     const {args, flags} = await this.parse(Fetch)
     const url = args.url.trim()
 
-    if (url.length === 0) {
-      cliError({command: this, exitCode: 2, json: flags.json, message: 'URL must not be empty.'})
-    }
-
+    let parsed: URL
     try {
-      const parsed = new URL(url)
-      if (!parsed.hostname) {
-        cliError({command: this, exitCode: 2, json: flags.json, message: `Invalid URL: ${url}`})
-      }
+      parsed = new URL(url)
     } catch {
       cliError({command: this, exitCode: 2, json: flags.json, message: `Invalid URL: ${url}`})
     }
 
-    let client
-    try {
-      ;({client} = createBrowserbaseClient({flagKey: flags['api-key']}))
-    } catch (error) {
-      if (error instanceof MissingApiKeyError) {
-        cliError({command: this, exitCode: 2, json: flags.json, message: error.message})
-      }
-
-      throw error
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      cliError({
+        command: this,
+        exitCode: 2,
+        json: flags.json,
+        message: `Only http and https URLs are supported: ${url}`,
+      })
     }
+
+    if (!parsed.hostname) {
+      cliError({command: this, exitCode: 2, json: flags.json, message: `Invalid URL: ${url}`})
+    }
+
+    const {client} = getBrowserbaseClientOrExit(this, flags)
 
     try {
       const response = await client.fetchAPI.create({
@@ -78,29 +81,36 @@ export default class Fetch extends Command {
       })
 
       if (flags.json) {
-        printJson({
-          content: response.content,
-          contentType: response.contentType,
-          encoding: response.encoding,
-          headers: response.headers,
-          id: response.id,
-          statusCode: response.statusCode,
-        })
+        printJson(buildFetchJsonPayload(response))
         return
       }
 
-      const meta = [
-        `id: ${response.id}`,
-        `statusCode: ${response.statusCode}`,
-        `contentType: ${response.contentType}`,
-        `encoding: ${response.encoding}`,
-      ].join('\n')
-
-      this.logToStderr(meta)
+      this.logToStderr(humanFetchMetaLines(response).join('\n'))
       this.logToStderr('')
 
       if (flags.output) {
-        await fs.writeFile(flags.output, response.content, 'utf8')
+        try {
+          await fs.writeFile(flags.output, response.content, 'utf8')
+        } catch (error: unknown) {
+          const code =
+            error !== null &&
+            typeof error === 'object' &&
+            'code' in error &&
+            typeof (error as {code?: unknown}).code === 'string'
+              ? (error as {code: string}).code
+              : undefined
+          if (code === 'ENOENT') {
+            cliError({
+              command: this,
+              exitCode: 1,
+              json: flags.json,
+              message: `Directory does not exist for output file: ${path.dirname(path.resolve(flags.output))}`,
+            })
+          }
+
+          throw error
+        }
+
         this.logToStderr(`Wrote body to ${flags.output}`)
         return
       }
@@ -113,9 +123,7 @@ export default class Fetch extends Command {
 
       this.log(content.slice(0, HUMAN_BODY_PREVIEW_CHARS))
       this.log('')
-      this.logToStderr(
-        `… truncated (${content.length} chars). Use --output FILE to save the full body (within the 1 MB Fetch limit).`,
-      )
+      this.logToStderr(truncateNote(content.length))
     } catch (error) {
       cliError({
         command: this,
