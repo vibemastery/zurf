@@ -7,6 +7,9 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -15,11 +18,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: latest
+          registry-url: 'https://registry.npmjs.org'
           cache: pnpm
+      - run: npm install -g npm@latest
       - run: pnpm install
       - run: pnpm run build
       - run: pnpm run prepack
-      - uses: JS-DevTools/npm-publish@19c28f1ef146469e409470805ea4279d47c3d35c
-        with:
-          token: ${{ secrets.NPM_TOKEN }}
+      - run: npm publish --provenance --access public
       - run: pnpm run postpack
