@@ -24,7 +24,9 @@ $ zurf init --global
 $ zurf init --local
 ```
 
-For project-local storage, add `.zurf/` to `.gitignore` so the key is never committed.
+For project-local storage, add `.zurf/` to `.gitignore` so the key is never committed. You can run `zurf init --local --gitignore` to append a `.zurf/` entry automatically.
+
+**Security note:** Keys in `config.json` are stored as plaintext with file mode `0o600`. For shared machines or stricter setups, prefer `BROWSERBASE_API_KEY` from your environment or a secrets manager instead of `init`.
 
 See where a key would be loaded from (nothing secret is printed): `zurf config which`.
 
@@ -38,8 +40,6 @@ $ zurf fetch https://example.com --json
 ```
 
 <!-- toc -->
-* [Configuration](#configuration)
-* [Claude Code and agents](#claude-code-and-agents)
 * [Usage](#usage)
 * [Commands](#commands)
 <!-- tocstop -->
@@ -50,7 +50,7 @@ $ npm install -g zurf
 $ zurf COMMAND
 running command...
 $ zurf (--version)
-zurf/0.0.0 darwin-arm64 node-v22.22.2
+zurf/0.1.0 darwin-arm64 node-v22.22.2
 $ zurf --help [COMMAND]
 USAGE
   $ zurf COMMAND
@@ -96,7 +96,7 @@ EXAMPLES
   $ zurf config which --json
 ```
 
-_See code: [src/commands/config/which.ts](https://github.com/vibemastery/zurf/blob/v0.0.0/src/commands/config/which.ts)_
+_See code: [src/commands/config/which.ts](https://github.com/vibemastery/zurf/blob/v0.1.0/src/commands/config/which.ts)_
 
 ## `zurf fetch URL`
 
@@ -129,7 +129,7 @@ EXAMPLES
   $ zurf fetch https://example.com -o page.html --proxies
 ```
 
-_See code: [src/commands/fetch/index.ts](https://github.com/vibemastery/zurf/blob/v0.0.0/src/commands/fetch/index.ts)_
+_See code: [src/commands/fetch/index.ts](https://github.com/vibemastery/zurf/blob/v0.1.0/src/commands/fetch/index.ts)_
 
 ## `zurf help [COMMAND]`
 
@@ -157,10 +157,11 @@ Save your Browserbase API key to global or project config
 
 ```
 USAGE
-  $ zurf init [-k <value>] [--global | --local] [--json]
+  $ zurf init [-k <value>] [--json] [--gitignore] [--global | --local]
 
 FLAGS
   -k, --api-key=<value>  API key (non-interactive); otherwise read from stdin pipe or prompt
+      --gitignore        Append .zurf/ to ./.gitignore if that entry is missing
       --global           Store API key in user config (~/.config/zurf or XDG equivalent)
       --json             [env: ZURF_JSON] Print machine-readable JSON to stdout
       --local            Store API key in ./.zurf/config.json for this directory
@@ -176,7 +177,7 @@ EXAMPLES
   printenv BROWSERBASE_API_KEY | zurf init --global
 ```
 
-_See code: [src/commands/init/index.ts](https://github.com/vibemastery/zurf/blob/v0.0.0/src/commands/init/index.ts)_
+_See code: [src/commands/init/index.ts](https://github.com/vibemastery/zurf/blob/v0.1.0/src/commands/init/index.ts)_
 
 ## `zurf plugins`
 
@@ -477,7 +478,7 @@ USAGE
   $ zurf search QUERY [-k <value>] [--json] [-n <value>]
 
 ARGUMENTS
-  QUERY  Search query (quote for multiple words)
+  QUERY  Search query, max 200 characters (quote for multiple words)
 
 FLAGS
   -k, --api-key=<value>      Browserbase API key (overrides env and config files)
@@ -493,5 +494,5 @@ EXAMPLES
   $ zurf search "laravel inertia" --num-results 5 --json
 ```
 
-_See code: [src/commands/search/index.ts](https://github.com/vibemastery/zurf/blob/v0.0.0/src/commands/search/index.ts)_
+_See code: [src/commands/search/index.ts](https://github.com/vibemastery/zurf/blob/v0.1.0/src/commands/search/index.ts)_
 <!-- commandsstop -->
