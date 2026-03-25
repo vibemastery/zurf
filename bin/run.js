@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 
-import {execute} from '@oclif/core'
+import {flush, handle, run} from '@oclif/core'
 
 import {CliJsonExitContractError} from '../dist/lib/cli-errors.js'
 
 try {
-  await execute({dir: import.meta.url})
+  await run(process.argv.slice(2), import.meta.url)
 } catch (error) {
   if (error instanceof CliJsonExitContractError) {
     process.exitCode = 1
   } else {
-    throw error
+    await handle(error)
   }
+} finally {
+  await flush()
 }
