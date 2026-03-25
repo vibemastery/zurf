@@ -3,11 +3,9 @@ import {expect} from 'chai'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import path from 'node:path'
-import {fileURLToPath} from 'node:url'
 
 import {captureEnv, restoreEnv} from '../helpers/env-sandbox.js'
-
-const packageRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+import {packageRoot} from '../helpers/package-root.js'
 const ENV_KEYS = ['BROWSERBASE_API_KEY', 'XDG_CONFIG_HOME'] as const
 
 describe('search without API key', () => {

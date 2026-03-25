@@ -8,7 +8,6 @@ import {
   globalConfigPath,
   localConfigPathForCwd,
   resolveApiKey,
-  whichApiKeySource,
   writeApiKeyConfig,
 } from '../../src/lib/config.js'
 import {captureEnv, restoreEnv} from '../helpers/env-sandbox.js'
@@ -74,20 +73,19 @@ describe('config', () => {
     expect(r).to.deep.include({apiKey: 'walk-up', path: localFile, source: 'local'})
   })
 
-  it('whichApiKeySource returns none when nothing set', () => {
-    expect(whichApiKeySource({}).kind).to.equal('none')
+  it('resolveApiKey returns none when nothing set', () => {
+    expect(resolveApiKey({}).source).to.equal('none')
   })
 
-  it('whichApiKeySource matches resolveApiKey for global file', async () => {
+  it('resolveApiKey returns global with path when global file has key', async () => {
     const g = globalConfigPath()
     await fs.promises.mkdir(path.dirname(g), {recursive: true})
     await writeApiKeyConfig(g, 'gk')
     const resolved = resolveApiKey({})
-    const which = whichApiKeySource({})
     expect(resolved.source).to.equal('global')
-    expect(which.kind).to.equal('global')
-    if (resolved.source === 'global' && which.kind === 'global') {
-      expect(which.path).to.equal(resolved.path)
+    if (resolved.source === 'global') {
+      expect(resolved.path).to.equal(g)
+      expect(resolved.apiKey).to.equal('gk')
     }
   })
 

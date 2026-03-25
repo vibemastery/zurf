@@ -3,11 +3,9 @@ import {expect} from 'chai'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import path from 'node:path'
-import {fileURLToPath} from 'node:url'
 
 import {captureEnv, restoreEnv} from '../helpers/env-sandbox.js'
-
-const packageRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+import {packageRoot} from '../helpers/package-root.js'
 const ENV_KEYS = ['BROWSERBASE_API_KEY', 'XDG_CONFIG_HOME'] as const
 
 describe('fetch', () => {
@@ -39,5 +37,12 @@ describe('fetch', () => {
     expect(error).to.be.instanceOf(Error)
     const j = JSON.parse(stdout.trim())
     expect(j.error.message as string).to.contain('Invalid URL')
+  })
+
+  it('rejects non-http(s) URLs before requiring API key', async () => {
+    const {error, stdout} = await runCommand('fetch "file:///etc/passwd" --json', packageRoot)
+    expect(error).to.be.instanceOf(Error)
+    const j = JSON.parse(stdout.trim())
+    expect(j.error.message as string).to.match(/http|https/i)
   })
 })
