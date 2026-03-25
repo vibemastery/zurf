@@ -1,19 +1,17 @@
 import {Command, Flags} from '@oclif/core'
 
 import {globalConfigPath, whichApiKeySource} from '../../lib/config.js'
+import {zurfBaseFlags} from '../../lib/flags.js'
 import {printJson} from '../../lib/json-output.js'
 
 export default class ConfigWhich extends Command {
   static description = 'Show where the Browserbase API key would be loaded from (no secret printed)'
   static examples = ['<%= config.bin %> config which', '<%= config.bin %> config which --json']
   static flags = {
+    ...zurfBaseFlags,
     'api-key': Flags.string({
       char: 'k',
       description: 'Simulate passing --api-key on other commands',
-    }),
-    json: Flags.boolean({
-      description: 'Print machine-readable JSON to stdout',
-      env: 'ZURF_JSON',
     }),
   }
 
@@ -50,6 +48,7 @@ export default class ConfigWhich extends Command {
             source: 'none',
           })
           this.exit(1)
+          break
         }
       }
 
@@ -81,6 +80,7 @@ export default class ConfigWhich extends Command {
         this.error(
           `No API key configured. Set BROWSERBASE_API_KEY or run \`${this.config.bin} init --global\` / \`--local\`.`,
         )
+        break
       }
     }
   }

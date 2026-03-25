@@ -1,21 +1,27 @@
 import {Command, Flags} from '@oclif/core'
 import * as readline from 'node:readline'
 
+import {cliError} from '../../lib/cli-errors.js'
 import {globalConfigPath, localConfigPathForCwd, writeApiKeyConfig} from '../../lib/config.js'
-import {printErrorJson, printJson} from '../../lib/json-output.js'
+import {zurfBaseFlags} from '../../lib/flags.js'
+import {printJson} from '../../lib/json-output.js'
 
 async function readStdinIfPiped(): Promise<string | undefined> {
   if (process.stdin.isTTY) {
     return undefined
   }
 
-  const chunks: Buffer[] = []
-  for await (const chunk of process.stdin) {
-    chunks.push(chunk as Buffer)
-  }
+  try {
+    const chunks: Buffer[] = []
+    for await (const chunk of process.stdin) {
+      chunks.push(chunk as Buffer)
+    }
 
-  const s = Buffer.concat(chunks).toString('utf8').trim()
-  return s.length > 0 ? s : undefined
+    const s = Buffer.concat(chunks).toString('utf8').trim()
+    return s.length > 0 ? s : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function promptLine(question: string): Promise<string> {
@@ -36,6 +42,7 @@ export default class Init extends Command {
     'printenv BROWSERBASE_API_KEY | <%= config.bin %> <%= command.id %> --global',
   ]
   static flags = {
+    ...zurfBaseFlags,
     'api-key': Flags.string({
       char: 'k',
       description: 'API key (non-interactive); otherwise read from stdin pipe or prompt',
@@ -43,10 +50,6 @@ export default class Init extends Command {
     global: Flags.boolean({
       description: 'Store API key in user config (~/.config/zurf or XDG equivalent)',
       exclusive: ['local'],
-    }),
-    json: Flags.boolean({
-      description: 'Print machine-readable JSON to stdout',
-      env: 'ZURF_JSON',
     }),
     local: Flags.boolean({
       description: 'Store API key in ./.zurf/config.json for this directory',
@@ -58,13 +61,12 @@ export default class Init extends Command {
     const {flags} = await this.parse(Init)
 
     if (!flags.global && !flags.local) {
-      const msg = 'Specify exactly one of --global or --local.'
-      if (flags.json) {
-        printErrorJson(msg)
-        this.exit(2)
-      }
-
-      this.error(msg)
+      cliError({
+        command: this,
+        exitCode: 2,
+        json: flags.json,
+        message: 'Specify exactly one of --global or --local.',
+      })
     }
 
     let apiKey = flags['api-key']?.trim()
@@ -78,13 +80,12 @@ export default class Init extends Command {
     }
 
     if (!apiKey) {
-      const msg = 'No API key provided. Use --api-key, pipe stdin, or run interactively in a TTY.'
-      if (flags.json) {
-        printErrorJson(msg)
-        this.exit(2)
-      }
-
-      this.error(msg)
+      cliError({
+        command: this,
+        exitCode: 2,
+        json: flags.json,
+        message: 'No API key provided. Use --api-key, pipe stdin, or run interactively in a TTY.',
+      })
     }
 
     const targetPath = flags.global ? globalConfigPath() : localConfigPathForCwd()
@@ -93,12 +94,7 @@ export default class Init extends Command {
       await writeApiKeyConfig(targetPath, apiKey)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      if (flags.json) {
-        printErrorJson(message)
-        this.exit(1)
-      }
-
-      this.error(message)
+      cliError({command: this, exitCode: 1, json: flags.json, message})
     }
 
     if (flags.json) {

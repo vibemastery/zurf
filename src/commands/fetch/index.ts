@@ -2,9 +2,9 @@ import {Args, Command, Flags} from '@oclif/core'
 import * as fs from 'node:fs/promises'
 
 import {createBrowserbaseClient, MissingApiKeyError} from '../../lib/browserbase-client.js'
-import {errorMessage, errorStatus} from '../../lib/cli-errors.js'
+import {cliError, errorMessage, errorStatus} from '../../lib/cli-errors.js'
 import {zurfBaseFlags} from '../../lib/flags.js'
-import {printErrorJson, printJson} from '../../lib/json-output.js'
+import {printJson} from '../../lib/json-output.js'
 
 const HUMAN_BODY_PREVIEW_CHARS = 8000
 
@@ -46,12 +46,16 @@ export default class Fetch extends Command {
     const url = args.url.trim()
 
     if (url.length === 0) {
-      if (flags.json) {
-        printErrorJson('URL must not be empty.')
-        this.exit(2)
-      }
+      cliError({command: this, exitCode: 2, json: flags.json, message: 'URL must not be empty.'})
+    }
 
-      this.error('URL must not be empty.')
+    try {
+      const parsed = new URL(url)
+      if (!parsed.hostname) {
+        cliError({command: this, exitCode: 2, json: flags.json, message: `Invalid URL: ${url}`})
+      }
+    } catch {
+      cliError({command: this, exitCode: 2, json: flags.json, message: `Invalid URL: ${url}`})
     }
 
     let client
@@ -59,12 +63,7 @@ export default class Fetch extends Command {
       ;({client} = createBrowserbaseClient({flagKey: flags['api-key']}))
     } catch (error) {
       if (error instanceof MissingApiKeyError) {
-        if (flags.json) {
-          printErrorJson(error.message)
-          this.exit(2)
-        }
-
-        this.error(error.message, {exit: 2})
+        cliError({command: this, exitCode: 2, json: flags.json, message: error.message})
       }
 
       throw error
@@ -118,12 +117,13 @@ export default class Fetch extends Command {
         `… truncated (${content.length} chars). Use --output FILE to save the full body (within the 1 MB Fetch limit).`,
       )
     } catch (error) {
-      if (flags.json) {
-        printErrorJson(errorMessage(error), errorStatus(error))
-        this.exit(1)
-      }
-
-      this.error(errorMessage(error), {exit: 1})
+      cliError({
+        command: this,
+        exitCode: 1,
+        json: flags.json,
+        message: errorMessage(error),
+        statusCode: errorStatus(error),
+      })
     }
   }
 }
