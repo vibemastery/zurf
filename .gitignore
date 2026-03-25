@@ -4,6 +4,7 @@
 /.idea
 /dist
 /.zurf
+*.tsbuildinfo
 /tmp
 /node_modules
 oclif.manifest.json
