@@ -17,8 +17,9 @@ describe('fetch-output', () => {
     statusCode: 200,
   }
 
-  it('buildFetchJsonPayload mirrors response fields', () => {
-    expect(buildFetchJsonPayload(sample)).to.deep.equal(sample)
+  it('buildFetchJsonPayload mirrors response fields and includes format', () => {
+    expect(buildFetchJsonPayload(sample, 'markdown')).to.deep.equal({...sample, format: 'markdown'})
+    expect(buildFetchJsonPayload(sample, 'html')).to.deep.equal({...sample, format: 'html'})
   })
 
   it('humanFetchMetaLines includes id and status', () => {

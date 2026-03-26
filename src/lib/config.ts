@@ -15,6 +15,7 @@ export type ActiveApiKey = Extract<ResolvedApiKey, {apiKey: string}>
 
 export interface ConfigFileShape {
   apiKey?: string
+  format?: 'html' | 'markdown'
   projectId?: string
 }
 
@@ -76,6 +77,35 @@ function readProjectIdFromFile(filePath: string): string | undefined {
   if (!parsed) return undefined
   const id = typeof parsed.projectId === 'string' ? parsed.projectId.trim() : ''
   return id.length > 0 ? id : undefined
+}
+
+function readFormatFromFile(filePath: string): 'html' | 'markdown' | undefined {
+  const parsed = readConfigFile(filePath)
+  if (!parsed) return undefined
+  const fmt = parsed.format
+  if (fmt === 'html' || fmt === 'markdown') return fmt
+  return undefined
+}
+
+export function resolveFormat(options: {cwd?: string; flagHtml: boolean; globalConfigDir: string}): 'html' | 'markdown' {
+  if (options.flagHtml) return 'html'
+
+  const envVal = process.env.ZURF_HTML?.trim().toLowerCase()
+  if (envVal === 'true' || envVal === '1') return 'html'
+
+  const cwd = options.cwd ?? process.cwd()
+
+  const localPath = findLocalConfigPath(cwd)
+  if (localPath) {
+    const fmt = readFormatFromFile(localPath)
+    if (fmt) return fmt
+  }
+
+  const gPath = globalConfigFilePath(options.globalConfigDir)
+  const globalFmt = readFormatFromFile(gPath)
+  if (globalFmt) return globalFmt
+
+  return 'markdown'
 }
 
 export function resolveApiKey(options: {cwd?: string; globalConfigDir: string}): ResolvedApiKey {
