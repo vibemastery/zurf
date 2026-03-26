@@ -11,7 +11,6 @@ const ENV_KEYS = ['BROWSERBASE_API_KEY', 'BROWSERBASE_PROJECT_ID', 'XDG_CONFIG_H
 
 describe('browse', () => {
   let tmp: string
-  let prevCwd: string
   let envSnapshot: Map<string, string | undefined>
 
   beforeEach(() => {
@@ -20,12 +19,9 @@ describe('browse', () => {
     delete process.env.BROWSERBASE_API_KEY
     delete process.env.BROWSERBASE_PROJECT_ID
     process.env.XDG_CONFIG_HOME = path.join(tmp, 'empty-xdg')
-    prevCwd = process.cwd()
-    process.chdir(tmp)
   })
 
   afterEach(() => {
-    process.chdir(prevCwd)
     fs.rmSync(tmp, {force: true, recursive: true})
     restoreEnv(envSnapshot)
   })
