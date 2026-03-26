@@ -6,7 +6,15 @@ export const zurfJsonFlag = Flags.boolean({
   env: 'ZURF_JSON',
 })
 
+/** Output raw HTML instead of the default markdown conversion. */
+export const zurfHtmlFlag = Flags.boolean({
+  default: false,
+  description: 'Output raw HTML instead of markdown',
+  env: 'ZURF_HTML',
+})
+
 /** Shared flags for commands that support JSON output (no `--api-key` — use BROWSERBASE_API_KEY or config files). */
 export const zurfBaseFlags = {
+  html: zurfHtmlFlag,
   json: zurfJsonFlag,
 } as const

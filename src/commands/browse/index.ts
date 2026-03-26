@@ -10,8 +10,9 @@ import {
 } from '../../lib/browse-output.js'
 import {withBrowserbaseSession} from '../../lib/browserbase-session.js'
 import {cliError, errorCode} from '../../lib/cli-errors.js'
-import {resolveProjectId} from '../../lib/config.js'
+import {resolveFormat, resolveProjectId} from '../../lib/config.js'
 import {zurfBaseFlags} from '../../lib/flags.js'
+import {htmlToMarkdown} from '../../lib/html-to-markdown.js'
 import {printJson} from '../../lib/json-output.js'
 import {ZurfBrowserbaseCommand} from '../../lib/zurf-browserbase-command.js'
 
@@ -22,22 +23,23 @@ export default class Browse extends ZurfBrowserbaseCommand {
       required: true,
     }),
   }
-  static description = `Browse a URL in a cloud browser and return the fully-rendered HTML.
+  static description = `Browse a URL in a cloud browser and return the rendered content as markdown (default) or raw HTML.
 Uses a real Chromium browser via Browserbase, so JavaScript-heavy pages are fully rendered.
 Requires authentication and a Project ID. Run \`zurf init --global\` before first use.`
   static examples = [
     '<%= config.bin %> <%= command.id %> https://example.com',
+    '<%= config.bin %> <%= command.id %> https://example.com --html',
     '<%= config.bin %> <%= command.id %> https://example.com --json',
-    '<%= config.bin %> <%= command.id %> https://example.com -o page.html',
+    '<%= config.bin %> <%= command.id %> https://example.com -o page.md',
   ]
   static flags = {
     ...zurfBaseFlags,
     output: Flags.string({
       char: 'o',
-      description: 'Write rendered HTML to this file (full content); otherwise human mode prints a truncated preview to stdout',
+      description: 'Write rendered content to this file (full content); otherwise human mode prints a truncated preview to stdout',
     }),
   }
-  static summary = 'Browse a URL in a cloud browser and return rendered HTML'
+  static summary = 'Browse a URL in a cloud browser and return rendered content as markdown'
 
   async run(): Promise<void> {
     const {args, flags} = await this.parse(Browse)
@@ -84,8 +86,11 @@ Requires authentication and a Project ID. Run \`zurf init --global\` before firs
         },
       })
 
+      const format = resolveFormat({flagHtml: flags.html, globalConfigDir: this.config.configDir})
+      const content = format === 'markdown' ? await htmlToMarkdown(result.content) : result.content
+
       if (flags.json) {
-        const payload: BrowseJsonPayload = {content: result.content, statusCode: result.statusCode, url}
+        const payload: BrowseJsonPayload = {content, format, statusCode: result.statusCode, url}
         printJson(payload)
         return
       }
@@ -95,7 +100,7 @@ Requires authentication and a Project ID. Run \`zurf init --global\` before firs
 
       if (flags.output) {
         try {
-          await fs.writeFile(flags.output, result.content, 'utf8')
+          await fs.writeFile(flags.output, content, 'utf8')
         } catch (error: unknown) {
           if (errorCode(error) === 'ENOENT') {
             cliError({
@@ -109,11 +114,10 @@ Requires authentication and a Project ID. Run \`zurf init --global\` before firs
           throw error
         }
 
-        this.logToStderr(`Wrote rendered HTML to ${flags.output}`)
+        this.logToStderr(`Wrote rendered content to ${flags.output}`)
         return
       }
 
-      const {content} = result
       if (content.length <= HUMAN_BODY_PREVIEW_CHARS) {
         this.log(content)
         return

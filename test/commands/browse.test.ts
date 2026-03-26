@@ -7,7 +7,7 @@ import path from 'node:path'
 import {captureEnv, restoreEnv} from '../helpers/env-sandbox.js'
 import {packageRoot} from '../helpers/package-root.js'
 
-const ENV_KEYS = ['BROWSERBASE_API_KEY', 'BROWSERBASE_PROJECT_ID', 'XDG_CONFIG_HOME'] as const
+const ENV_KEYS = ['BROWSERBASE_API_KEY', 'BROWSERBASE_PROJECT_ID', 'XDG_CONFIG_HOME', 'ZURF_HTML'] as const
 
 describe('browse', () => {
   let tmp: string
