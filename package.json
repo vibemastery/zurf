@@ -1,7 +1,7 @@
 {
   "name": "@vibemastery/zurf",
   "description": "A lightweight CLI for searching and fetching web pages, powered by Browserbase.",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "author": "Luis Güette",
   "bin": {
     "zurf": "./bin/run.js"
