@@ -2,7 +2,7 @@ import {Command, Flags} from '@oclif/core'
 import * as fs from 'node:fs/promises'
 
 import {cliError, errorMessage} from '../../lib/cli-errors.js'
-import {globalConfigFilePath, localConfigPathForCwd, writeApiKeyConfig} from '../../lib/config.js'
+import {type ConfigFileShape, globalConfigFilePath, localConfigPathForCwd, writeConfig} from '../../lib/config.js'
 import {zurfBaseFlags} from '../../lib/flags.js'
 import {
   dotGitignoreMentionsZurf,
@@ -13,11 +13,12 @@ import {promptLine, readStdinIfPiped} from '../../lib/init-input.js'
 import {printJson} from '../../lib/json-output.js'
 
 export default class Init extends Command {
-  static description = `Save your Browserbase API key to global or project config.
+  static description = `Save your Browserbase API key and optional Project ID to global or project config.
 Global path follows oclif config (same as \`zurf config which\`).`
   static examples = [
     '<%= config.bin %> <%= command.id %> --global',
     '<%= config.bin %> <%= command.id %> --local',
+    '<%= config.bin %> <%= command.id %> --global --api-key KEY --project-id PROJ_ID',
     'printenv BROWSERBASE_API_KEY | <%= config.bin %> <%= command.id %> --global',
   ]
   static flags = {
@@ -37,8 +38,11 @@ Global path follows oclif config (same as \`zurf config which\`).`
       description: 'Store API key in ./.zurf/config.json for this directory',
       exactlyOne: ['global', 'local'],
     }),
+    'project-id': Flags.string({
+      description: 'Browserbase Project ID (optional; needed for browse, screenshot, pdf commands)',
+    }),
   }
-  static summary = 'Configure Browserbase API key storage'
+  static summary = 'Configure Browserbase API key and Project ID storage'
 
   async run(): Promise<void> {
     const {flags} = await this.parse(Init)
@@ -48,8 +52,13 @@ Global path follows oclif config (same as \`zurf config which\`).`
       ? globalConfigFilePath(this.config.configDir)
       : localConfigPathForCwd()
 
+    const projectId = await this.readProjectIdForInit(flags)
+
+    const configUpdate: Partial<ConfigFileShape> = {apiKey: apiKey.trim()}
+    if (projectId) configUpdate.projectId = projectId
+
     try {
-      await writeApiKeyConfig(targetPath, apiKey)
+      await writeConfig(targetPath, configUpdate)
     } catch (error) {
       cliError({command: this, exitCode: 1, json: flags.json, message: errorMessage(error)})
     }
@@ -63,9 +72,15 @@ Global path follows oclif config (same as \`zurf config which\`).`
     }
 
     if (flags.json) {
-      printJson({ok: true, path: targetPath, scope: flags.global ? 'global' : 'local'})
+      const payload: Record<string, unknown> = {ok: true, path: targetPath, scope: flags.global ? 'global' : 'local'}
+      if (projectId) payload.projectId = true
+      printJson(payload)
     } else {
       this.log(`Saved API key to ${targetPath}`)
+      if (projectId) {
+        this.log(`Saved Project ID to ${targetPath}`)
+      }
+
       if (flags.local) {
         let showTip = true
         try {
@@ -104,5 +119,14 @@ Global path follows oclif config (same as \`zurf config which\`).`
     }
 
     return apiKey
+  }
+
+  private async readProjectIdForInit(flags: {json: boolean; 'project-id'?: string}): Promise<string | undefined> {
+    let projectId = flags['project-id']?.trim()
+    if (!projectId && !flags.json && process.stdin.isTTY) {
+      projectId = await promptLine('Browserbase Project ID (optional, press Enter to skip): ')
+    }
+
+    return projectId || undefined
   }
 }
