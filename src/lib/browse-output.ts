@@ -4,18 +4,6 @@ export interface BrowseJsonPayload {
   url: string
 }
 
-export function buildBrowseJsonPayload(options: {
-  content: string
-  statusCode: null | number
-  url: string
-}): BrowseJsonPayload {
-  return {
-    content: options.content,
-    statusCode: options.statusCode,
-    url: options.url,
-  }
-}
-
 export function humanBrowseMetaLines(options: {statusCode: null | number; url: string}): string[] {
   return [
     `url: ${options.url}`,

@@ -2,7 +2,7 @@ import {Command, Flags} from '@oclif/core'
 import * as fs from 'node:fs/promises'
 
 import {cliError, errorMessage} from '../../lib/cli-errors.js'
-import {globalConfigFilePath, localConfigPathForCwd, writeApiKeyConfig, writeConfig} from '../../lib/config.js'
+import {type ConfigFileShape, globalConfigFilePath, localConfigPathForCwd, writeConfig} from '../../lib/config.js'
 import {zurfBaseFlags} from '../../lib/flags.js'
 import {
   dotGitignoreMentionsZurf,
@@ -52,19 +52,15 @@ Global path follows oclif config (same as \`zurf config which\`).`
       ? globalConfigFilePath(this.config.configDir)
       : localConfigPathForCwd()
 
+    const projectId = await this.readProjectIdForInit(flags)
+
+    const configUpdate: Partial<ConfigFileShape> = {apiKey: apiKey.trim()}
+    if (projectId) configUpdate.projectId = projectId
+
     try {
-      await writeApiKeyConfig(targetPath, apiKey)
+      await writeConfig(targetPath, configUpdate)
     } catch (error) {
       cliError({command: this, exitCode: 1, json: flags.json, message: errorMessage(error)})
-    }
-
-    const projectId = await this.readProjectIdForInit(flags)
-    if (projectId) {
-      try {
-        await writeConfig(targetPath, {projectId})
-      } catch (error) {
-        cliError({command: this, exitCode: 1, json: flags.json, message: errorMessage(error)})
-      }
     }
 
     if (flags.gitignore) {

@@ -3,13 +3,13 @@ import * as fs from 'node:fs/promises'
 import path from 'node:path'
 
 import {
-  buildBrowseJsonPayload,
+  type BrowseJsonPayload,
   HUMAN_BODY_PREVIEW_CHARS,
   humanBrowseMetaLines,
   truncateNote,
 } from '../../lib/browse-output.js'
 import {withBrowserbaseSession} from '../../lib/browserbase-session.js'
-import {cliError} from '../../lib/cli-errors.js'
+import {cliError, errorCode} from '../../lib/cli-errors.js'
 import {resolveProjectId} from '../../lib/config.js'
 import {zurfBaseFlags} from '../../lib/flags.js'
 import {printJson} from '../../lib/json-output.js'
@@ -85,7 +85,8 @@ Requires authentication and a Project ID. Run \`zurf init --global\` before firs
       })
 
       if (flags.json) {
-        printJson(buildBrowseJsonPayload({content: result.content, statusCode: result.statusCode, url}))
+        const payload: BrowseJsonPayload = {content: result.content, statusCode: result.statusCode, url}
+        printJson(payload)
         return
       }
 
@@ -96,14 +97,7 @@ Requires authentication and a Project ID. Run \`zurf init --global\` before firs
         try {
           await fs.writeFile(flags.output, result.content, 'utf8')
         } catch (error: unknown) {
-          const code =
-            error !== null &&
-            typeof error === 'object' &&
-            'code' in error &&
-            typeof (error as {code?: unknown}).code === 'string'
-              ? (error as {code: string}).code
-              : undefined
-          if (code === 'ENOENT') {
+          if (errorCode(error) === 'ENOENT') {
             cliError({
               command: this,
               exitCode: 1,

@@ -31,6 +31,19 @@ export function errorMessage(err: unknown): string {
   return String(err)
 }
 
+export function errorCode(err: unknown): string | undefined {
+  if (
+    err !== null &&
+    typeof err === 'object' &&
+    'code' in err &&
+    typeof (err as {code: unknown}).code === 'string'
+  ) {
+    return (err as {code: string}).code
+  }
+
+  return undefined
+}
+
 export function errorStatus(err: unknown): number | undefined {
   if (
     err !== null &&
