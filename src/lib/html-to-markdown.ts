@@ -13,7 +13,7 @@ async function getService(): Promise<TurndownService> {
 
   service.remove(['script', 'style', 'iframe', 'noscript'])
   service.addRule('remove-svg', {
-    filter: 'svg' as never,
+    filter: (node) => node.nodeName.toLowerCase() === 'svg',
     replacement: () => '',
   })
 

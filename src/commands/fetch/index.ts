@@ -2,7 +2,7 @@ import {Args, Flags} from '@oclif/core'
 import * as fs from 'node:fs/promises'
 import path from 'node:path'
 
-import {cliError} from '../../lib/cli-errors.js'
+import {cliError, errorCode} from '../../lib/cli-errors.js'
 import {resolveFormat} from '../../lib/config.js'
 import {
   buildFetchJsonPayload,
@@ -99,14 +99,7 @@ Requires authentication. Run \`zurf init --global\` or use a project key before 
         try {
           await fs.writeFile(flags.output, content, 'utf8')
         } catch (error: unknown) {
-          const code =
-            error !== null &&
-            typeof error === 'object' &&
-            'code' in error &&
-            typeof (error as {code?: unknown}).code === 'string'
-              ? (error as {code: string}).code
-              : undefined
-          if (code === 'ENOENT') {
+          if (errorCode(error) === 'ENOENT') {
             cliError({
               command: this,
               exitCode: 1,
