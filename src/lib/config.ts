@@ -15,7 +15,14 @@ export type ActiveApiKey = Extract<ResolvedApiKey, {apiKey: string}>
 
 export interface ConfigFileShape {
   apiKey?: string
+  projectId?: string
 }
+
+export type ResolvedProjectId =
+  | {path: string; projectId: string; source: 'global'}
+  | {path: string; projectId: string; source: 'local'}
+  | {projectId: string; source: 'env'}
+  | {source: 'none'}
 
 /**
  * Path to global `config.json` under oclif's `this.config.configDir` (same rules as @oclif/core `Config.dir('config')` for `dirname` zurf).
@@ -48,15 +55,27 @@ export function findLocalConfigPath(startDir: string = process.cwd()): string | 
   return undefined
 }
 
-function readApiKeyFromFile(filePath: string): string | undefined {
+function readConfigFile(filePath: string): ConfigFileShape | undefined {
   try {
     const raw = fs.readFileSync(filePath, 'utf8')
-    const parsed = JSON.parse(raw) as ConfigFileShape
-    const key = typeof parsed.apiKey === 'string' ? parsed.apiKey.trim() : ''
-    return key.length > 0 ? key : undefined
+    return JSON.parse(raw) as ConfigFileShape
   } catch {
     return undefined
   }
+}
+
+function readApiKeyFromFile(filePath: string): string | undefined {
+  const parsed = readConfigFile(filePath)
+  if (!parsed) return undefined
+  const key = typeof parsed.apiKey === 'string' ? parsed.apiKey.trim() : ''
+  return key.length > 0 ? key : undefined
+}
+
+function readProjectIdFromFile(filePath: string): string | undefined {
+  const parsed = readConfigFile(filePath)
+  if (!parsed) return undefined
+  const id = typeof parsed.projectId === 'string' ? parsed.projectId.trim() : ''
+  return id.length > 0 ? id : undefined
 }
 
 export function resolveApiKey(options: {cwd?: string; globalConfigDir: string}): ResolvedApiKey {
@@ -84,10 +103,48 @@ export function resolveApiKey(options: {cwd?: string; globalConfigDir: string}):
   return {source: 'none'}
 }
 
+export function resolveProjectId(options: {cwd?: string; globalConfigDir: string}): ResolvedProjectId {
+  const cwd = options.cwd ?? process.cwd()
+
+  const envId = process.env.BROWSERBASE_PROJECT_ID?.trim()
+  if (envId) {
+    return {projectId: envId, source: 'env'}
+  }
+
+  const localPath = findLocalConfigPath(cwd)
+  if (localPath) {
+    const id = readProjectIdFromFile(localPath)
+    if (id) {
+      return {path: localPath, projectId: id, source: 'local'}
+    }
+  }
+
+  const gPath = globalConfigFilePath(options.globalConfigDir)
+  const globalId = readProjectIdFromFile(gPath)
+  if (globalId) {
+    return {path: gPath, projectId: globalId, source: 'global'}
+  }
+
+  return {source: 'none'}
+}
+
 export async function writeApiKeyConfig(targetPath: string, apiKey: string): Promise<void> {
+  await writeConfig(targetPath, {apiKey: apiKey.trim()})
+}
+
+export async function writeConfig(targetPath: string, fields: Partial<ConfigFileShape>): Promise<void> {
   const dir = path.dirname(targetPath)
   await fs.promises.mkdir(dir, {recursive: true})
-  const payload: ConfigFileShape = {apiKey: apiKey.trim()}
-  const body = `${JSON.stringify(payload, null, 2)}\n`
+
+  let existing: ConfigFileShape = {}
+  try {
+    const raw = await fs.promises.readFile(targetPath, 'utf8')
+    existing = JSON.parse(raw) as ConfigFileShape
+  } catch {
+    // file doesn't exist yet — start fresh
+  }
+
+  const merged: ConfigFileShape = {...existing, ...fields}
+  const body = `${JSON.stringify(merged, null, 2)}\n`
   await fs.promises.writeFile(targetPath, body, {encoding: 'utf8', mode: 0o600})
 }

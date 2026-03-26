@@ -57,6 +57,32 @@ describe('init', () => {
     expect(j.path).to.equal(path.join(xdg, 'zurf', 'config.json'))
   })
 
+  it('writes projectId to config when --project-id provided', async () => {
+    const {error} = await runCommand('init --global --api-key bb_key --project-id proj123', packageRoot)
+    expect(error).to.equal(undefined)
+    const cfgPath = path.join(xdg, 'zurf', 'config.json')
+    const raw = JSON.parse(fs.readFileSync(cfgPath, 'utf8'))
+    expect(raw.apiKey).to.equal('bb_key')
+    expect(raw.projectId).to.equal('proj123')
+  })
+
+  it('works without --project-id (backward compatible)', async () => {
+    const {error} = await runCommand('init --global --api-key bb_only_key', packageRoot)
+    expect(error).to.equal(undefined)
+    const cfgPath = path.join(xdg, 'zurf', 'config.json')
+    const raw = JSON.parse(fs.readFileSync(cfgPath, 'utf8'))
+    expect(raw.apiKey).to.equal('bb_only_key')
+    expect(raw).to.not.have.property('projectId')
+  })
+
+  it('includes projectId in JSON output when provided', async () => {
+    const {error, stdout} = await runCommand('init --global --api-key bb_j --project-id pj --json', packageRoot)
+    expect(error).to.equal(undefined)
+    const j = JSON.parse(stdout.trim())
+    expect(j.ok).to.equal(true)
+    expect(j.projectId).to.equal(true)
+  })
+
   it('appends .zurf/ to .gitignore with --gitignore', async () => {
     fs.writeFileSync(path.join(cwd, '.gitignore'), 'node_modules/\n', 'utf8')
     const {error} = await runCommand('init --local --api-key k --gitignore', packageRoot)
