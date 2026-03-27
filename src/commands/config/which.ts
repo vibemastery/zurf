@@ -1,12 +1,10 @@
 import {Command} from '@oclif/core'
 
-import {globalConfigFilePath, resolveApiKey, type ResolvedApiKey, type ResolvedPerplexityApiKey, resolvePerplexityApiKey} from '../../lib/config.js'
+import {globalConfigFilePath, resolveApiKey, type ResolvedApiKey, resolvePerplexityApiKey} from '../../lib/config.js'
 import {zurfBaseFlags} from '../../lib/flags.js'
 import {printJson} from '../../lib/json-output.js'
 
-type AnyResolved = ResolvedApiKey | ResolvedPerplexityApiKey
-
-function resolvedSource(resolved: AnyResolved): Record<string, unknown> {
+function resolvedSource(resolved: ResolvedApiKey): Record<string, unknown> {
   switch (resolved.source) {
     case 'env': {
       return {source: 'env'}
@@ -23,7 +21,7 @@ function resolvedSource(resolved: AnyResolved): Record<string, unknown> {
   }
 }
 
-function humanSourceLine(label: string, resolved: AnyResolved, envVarName: string): string {
+function humanSourceLine(label: string, resolved: ResolvedApiKey, envVarName: string): string {
   switch (resolved.source) {
     case 'env': {
       return `${label}: environment variable ${envVarName}`

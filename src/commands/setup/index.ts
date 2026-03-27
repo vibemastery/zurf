@@ -29,7 +29,7 @@ async function promptBrowserbase(): Promise<{configured: string; providers: Conf
   const projectId = await promptProjectId()
   const browserbase: NonNullable<ConfigFileShape['providers']>['browserbase'] = {apiKey: apiKey.trim()}
   if (projectId.trim()) {
-    browserbase!.projectId = projectId.trim()
+    browserbase.projectId = projectId.trim()
   }
 
   return {configured: 'Browserbase', providers: {browserbase}}

@@ -1,4 +1,4 @@
-import {checkbox, password, select} from '@inquirer/prompts'
+import {checkbox, input, password, select} from '@inquirer/prompts'
 
 export type ConfigScope = 'global' | 'local'
 
@@ -41,7 +41,6 @@ export async function promptApiKey(label: string): Promise<string> {
 }
 
 export async function promptProjectId(): Promise<string> {
-  const {input} = await import('@inquirer/prompts')
   return input({
     message: 'Browserbase Project ID (optional, press Enter to skip):',
   })

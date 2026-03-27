@@ -40,11 +40,8 @@ export type ResolvedProjectId =
   | {projectId: string; source: 'env'}
   | {source: 'none'}
 
-export type ResolvedPerplexityApiKey =
-  | {apiKey: string; path: string; source: 'global'}
-  | {apiKey: string; path: string; source: 'local'}
-  | {apiKey: string; source: 'env'}
-  | {source: 'none'}
+/** Alias — structurally identical to ResolvedApiKey; kept for semantic clarity at call sites. */
+export type ResolvedPerplexityApiKey = ResolvedApiKey
 
 /**
  * Path to global `config.json` under oclif's `this.config.configDir` (same rules as @oclif/core `Config.dir('config')` for `dirname` zurf).
@@ -119,26 +116,16 @@ export function readConfigFile(filePath: string): ConfigFileShape | undefined {
   }
 }
 
-function readBrowserbaseApiKeyFromFile(filePath: string): string | undefined {
+function readStringField(filePath: string, getter: (c: ConfigFileShape) => string | undefined): string | undefined {
   const parsed = readConfigFile(filePath)
   if (!parsed) return undefined
-  const key = typeof parsed.providers?.browserbase?.apiKey === 'string' ? parsed.providers.browserbase.apiKey.trim() : ''
-  return key.length > 0 ? key : undefined
+  const val = getter(parsed)?.trim() ?? ''
+  return val.length > 0 ? val : undefined
 }
 
-function readBrowserbaseProjectIdFromFile(filePath: string): string | undefined {
-  const parsed = readConfigFile(filePath)
-  if (!parsed) return undefined
-  const id = typeof parsed.providers?.browserbase?.projectId === 'string' ? parsed.providers.browserbase.projectId.trim() : ''
-  return id.length > 0 ? id : undefined
-}
-
-function readPerplexityApiKeyFromFile(filePath: string): string | undefined {
-  const parsed = readConfigFile(filePath)
-  if (!parsed) return undefined
-  const key = typeof parsed.providers?.perplexity?.apiKey === 'string' ? parsed.providers.perplexity.apiKey.trim() : ''
-  return key.length > 0 ? key : undefined
-}
+const readBrowserbaseApiKeyFromFile = (f: string) => readStringField(f, (c) => c.providers?.browserbase?.apiKey)
+const readBrowserbaseProjectIdFromFile = (f: string) => readStringField(f, (c) => c.providers?.browserbase?.projectId)
+const readPerplexityApiKeyFromFile = (f: string) => readStringField(f, (c) => c.providers?.perplexity?.apiKey)
 
 function readFormatFromFile(filePath: string): 'html' | 'markdown' | undefined {
   const parsed = readConfigFile(filePath)
@@ -278,7 +265,6 @@ export async function writeConfig(targetPath: string, fields: Partial<ConfigFile
     },
   }
 
-  // Clean up empty provider objects
   if (merged.providers?.browserbase && Object.keys(merged.providers.browserbase).length === 0) {
     delete merged.providers.browserbase
   }
