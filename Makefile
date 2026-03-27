@@ -1,4 +1,4 @@
-.PHONY: build test lint dev clean help
+.PHONY: build test lint dev clean help ask setup config-which
 
 # Default: show available targets
 help: ## Show this help
@@ -27,3 +27,12 @@ browse: build ## Run zurf browse (e.g. make browse URL=https://example.com)
 
 fetch: build ## Run zurf fetch (e.g. make fetch URL=https://example.com)
 	node bin/run.js fetch $(URL)
+
+ask: build ## Run zurf ask (e.g. make ask Q="What is Browserbase?")
+	node bin/run.js ask "$(Q)"
+
+setup: build ## Run zurf setup wizard
+	node bin/run.js setup $(ARGS)
+
+config-which: build ## Show where API keys are loaded from
+	node bin/run.js config which $(ARGS)
