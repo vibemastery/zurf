@@ -1,7 +1,7 @@
 zurf
 =================
 
-A lightweight CLI for searching, browsing, and fetching web pages, powered by Browserbase.
+A lightweight CLI for searching, browsing, and fetching web pages (Browserbase) and asking AI-powered questions with web citations (Perplexity Sonar).
 
 
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
@@ -12,11 +12,32 @@ A lightweight CLI for searching, browsing, and fetching web pages, powered by Br
 
 ```sh-session
 $ npm install -g @vibemastery/zurf
-$ zurf init --global          # save your Browserbase API key
+$ zurf setup                       # configure API keys (Browserbase, Perplexity)
 $ zurf --help
 ```
 
 ## Commands
+
+### `zurf ask <question>`
+
+Ask a question and get an AI-powered answer with web citations via Perplexity Sonar. Use `--depth deep` for more thorough research (sonar-pro).
+
+```sh-session
+$ zurf ask "What is Browserbase?"
+$ zurf ask "latest tech news" --recency day
+$ zurf ask "search reddit for best CLI tools" --domains reddit.com
+$ zurf ask "explain quantum computing" --depth deep
+$ zurf ask "What is Node.js?" --json
+$ zurf ask "What is oclif?" --no-citations
+```
+
+| Flag | Description |
+|------|-------------|
+| `--depth <quick\|deep>` | Search depth: quick (sonar) or deep (sonar-pro). Default: quick |
+| `--recency <hour\|day\|week\|month\|year>` | Filter sources by recency |
+| `--domains <list>` | Restrict search to these domains (comma-separated) |
+| `--no-citations` | Hide the sources list after the answer |
+| `--json` | Print machine-readable JSON to stdout |
 
 ### `zurf search <query>`
 
@@ -72,20 +93,19 @@ $ zurf fetch https://example.com --json        # JSON with content + metadata
 | `--allow-insecure-ssl` | Disable TLS certificate verification |
 | `--json` | Print machine-readable JSON to stdout |
 
-### `zurf init`
+### `zurf setup`
 
-Save your Browserbase API key and optional Project ID to a config file.
+Interactive wizard to configure API keys for all providers (Browserbase, Perplexity). Stores keys in global or local config. Re-run to update or add providers.
 
 ```sh-session
-$ zurf init --global                              # save to global config
-$ zurf init --local                               # save to project .zurf/config.json
-$ zurf init --local --gitignore                   # also append .zurf/ to .gitignore
-$ zurf init --global --project-id <project-id>    # save project ID too
+$ zurf setup                # interactive wizard
+$ zurf setup --global       # skip scope prompt, save to global config
+$ zurf setup --local        # skip scope prompt, save to project .zurf/config.json
 ```
 
 ### `zurf config which`
 
-Show where your API key and Project ID would be loaded from (nothing secret is printed).
+Show where your API keys would be loaded from (nothing secret is printed). Shows resolution for both Browserbase and Perplexity.
 
 ```sh-session
 $ zurf config which
@@ -112,22 +132,53 @@ Format resolution (highest precedence first):
 
 ## Configuration
 
-API key resolution (highest precedence first):
+### Config file structure (v0.3.0+)
 
-1. Environment variable `BROWSERBASE_API_KEY`
-2. Nearest `.zurf/config.json` when walking up from the current working directory
-3. Global config: `$XDG_CONFIG_HOME/zurf/config.json` (or `~/.config/zurf/config.json`)
-
-Save a key interactively:
-
-```sh-session
-$ zurf init --global
-$ zurf init --local
+```json
+{
+  "providers": {
+    "browserbase": {
+      "apiKey": "bb_...",
+      "projectId": "proj_..."
+    },
+    "perplexity": {
+      "apiKey": "pplx-..."
+    }
+  },
+  "format": "markdown"
+}
 ```
 
-For project-local storage, add `.zurf/` to `.gitignore` so the key is never committed. You can run `zurf init --local --gitignore` to append a `.zurf/` entry automatically.
+Old flat configs (v0.2.x) are auto-migrated when read — no manual action needed.
 
-**Security note:** Keys in `config.json` are stored as plaintext with file mode `0o600`. For shared machines or stricter setups, prefer `BROWSERBASE_API_KEY` from your environment or a secrets manager instead of `init`.
+### API key resolution
+
+Each provider resolves its key independently (highest precedence first):
+
+**Browserbase:**
+1. Environment variable `BROWSERBASE_API_KEY`
+2. Nearest `.zurf/config.json` → `providers.browserbase.apiKey`
+3. Global config → `providers.browserbase.apiKey`
+
+**Perplexity:**
+1. Environment variable `PERPLEXITY_API_KEY`
+2. Nearest `.zurf/config.json` → `providers.perplexity.apiKey`
+3. Global config → `providers.perplexity.apiKey`
+
+Save keys interactively:
+
+```sh-session
+$ zurf setup
+```
+
+For project-local storage, add `.zurf/` to `.gitignore` so keys are never committed. `zurf setup --local` will offer to do this automatically.
+
+**Security note:** Keys in `config.json` are stored as plaintext with file mode `0o600`. For shared machines or stricter setups, prefer environment variables from a secrets manager.
+
+### Migration from v0.2.x
+
+- Config files auto-migrate from the old flat shape (`{ "apiKey": "..." }`) to the new nested shape. No manual changes needed.
+- `zurf init` has been replaced by `zurf setup`. The setup wizard supports multiple providers.
 
 ## Claude Code and agents
 
@@ -137,6 +188,7 @@ Install `zurf` on your `PATH` and allow the agent to run shell commands. Use `--
 $ zurf search "browserbase fetch api" --json
 $ zurf browse https://example.com --json
 $ zurf fetch https://example.com --json
+$ zurf ask "What is Browserbase?" --json
 ```
 
 Content is returned as markdown by default, which keeps token counts low. Pass `--html` if the agent needs the raw DOM.

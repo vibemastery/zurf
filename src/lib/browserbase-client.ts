@@ -20,7 +20,7 @@ export async function createBrowserbaseClient(options: {
 export class MissingApiKeyError extends Error {
   constructor() {
     super(
-      'No Browserbase API key found. Set BROWSERBASE_API_KEY, run `zurf init --global` or `zurf init --local`, or add a project `.zurf/config.json`.',
+      'No Browserbase API key found. Set BROWSERBASE_API_KEY, run `zurf setup`, or add a project `.zurf/config.json`.',
     )
     this.name = 'MissingApiKeyError'
   }

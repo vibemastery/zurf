@@ -8,11 +8,13 @@ import {
   globalConfigFilePath,
   localConfigPathForCwd,
   resolveApiKey,
+  resolvePerplexityApiKey,
   writeApiKeyConfig,
+  writeConfig,
 } from '../../src/lib/config.js'
 import {captureEnv, restoreEnv} from '../helpers/env-sandbox.js'
 
-const ENV_KEYS = ['BROWSERBASE_API_KEY', 'HOME', 'XDG_CONFIG_HOME'] as const
+const ENV_KEYS = ['BROWSERBASE_API_KEY', 'HOME', 'PERPLEXITY_API_KEY', 'XDG_CONFIG_HOME'] as const
 
 describe('config', () => {
   let tmp: string
@@ -25,6 +27,7 @@ describe('config', () => {
     process.env.XDG_CONFIG_HOME = path.join(tmp, 'xdg-config')
     process.env.HOME = tmp
     delete process.env.BROWSERBASE_API_KEY
+    delete process.env.PERPLEXITY_API_KEY
     globalConfigDir = path.join(process.env.XDG_CONFIG_HOME, 'zurf')
   })
 
@@ -88,5 +91,53 @@ describe('config', () => {
   it('localConfigPathForCwd joins .zurf/config.json', () => {
     const p = localConfigPathForCwd(path.join(tmp, 'myapp'))
     expect(p).to.equal(path.join(tmp, 'myapp', '.zurf', 'config.json'))
+  })
+
+  it('resolveApiKey reads from new nested shape', async () => {
+    const g = globalConfigFilePath(globalConfigDir)
+    await fs.promises.mkdir(path.dirname(g), {recursive: true})
+    await writeConfig(g, {providers: {browserbase: {apiKey: 'nested-key'}}})
+    const resolved = resolveApiKey({globalConfigDir})
+    expect(resolved).to.deep.include({apiKey: 'nested-key', source: 'global'})
+  })
+
+  it('resolveApiKey auto-migrates old flat shape', async () => {
+    const proj = path.join(tmp, 'legacy')
+    const zurfDir = path.join(proj, '.zurf')
+    fs.mkdirSync(zurfDir, {recursive: true})
+    const localFile = path.join(zurfDir, 'config.json')
+    // Write old flat shape directly
+    fs.writeFileSync(localFile, JSON.stringify({apiKey: 'flat-key', projectId: 'flat-proj'}), 'utf8')
+
+    const r = resolveApiKey({cwd: proj, globalConfigDir})
+    expect(r).to.deep.include({apiKey: 'flat-key', path: localFile, source: 'local'})
+  })
+
+  it('writeApiKeyConfig writes new nested shape', async () => {
+    const cfgPath = path.join(tmp, 'write-test', 'config.json')
+    await writeApiKeyConfig(cfgPath, 'bb-key')
+    const raw = JSON.parse(fs.readFileSync(cfgPath, 'utf8'))
+    expect(raw.providers.browserbase.apiKey).to.equal('bb-key')
+    expect(raw).to.not.have.property('apiKey')
+  })
+
+  describe('resolvePerplexityApiKey', () => {
+    it('uses PERPLEXITY_API_KEY env var', () => {
+      process.env.PERPLEXITY_API_KEY = 'pplx-from-env'
+      const r = resolvePerplexityApiKey({globalConfigDir})
+      expect(r).to.deep.include({apiKey: 'pplx-from-env', source: 'env'})
+    })
+
+    it('reads from config file', async () => {
+      const g = globalConfigFilePath(globalConfigDir)
+      await fs.promises.mkdir(path.dirname(g), {recursive: true})
+      await writeConfig(g, {providers: {perplexity: {apiKey: 'pplx-cfg'}}})
+      const r = resolvePerplexityApiKey({globalConfigDir})
+      expect(r).to.deep.include({apiKey: 'pplx-cfg', source: 'global'})
+    })
+
+    it('returns none when not set', () => {
+      expect(resolvePerplexityApiKey({globalConfigDir}).source).to.equal('none')
+    })
   })
 })

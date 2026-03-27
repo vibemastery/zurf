@@ -14,7 +14,7 @@ export default class Search extends ZurfBrowserbaseCommand {
     }),
   }
   static description = `Search the web via Browserbase (Exa-powered).
-Requires authentication. Run \`zurf init --global\` or use a project key before first use.`
+Requires authentication. Run \`zurf setup\` or use a project key before first use.`
   static examples = [
     '<%= config.bin %> <%= command.id %> "browserbase documentation"',
     '<%= config.bin %> <%= command.id %> "laravel inertia" --num-results 5 --json',

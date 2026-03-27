@@ -1,75 +1,89 @@
 import {Command} from '@oclif/core'
 
-import {globalConfigFilePath, resolveApiKey} from '../../lib/config.js'
+import {globalConfigFilePath, resolveApiKey, type ResolvedApiKey, type ResolvedPerplexityApiKey, resolvePerplexityApiKey} from '../../lib/config.js'
 import {zurfBaseFlags} from '../../lib/flags.js'
 import {printJson} from '../../lib/json-output.js'
 
+type AnyResolved = ResolvedApiKey | ResolvedPerplexityApiKey
+
+function resolvedSource(resolved: AnyResolved): Record<string, unknown> {
+  switch (resolved.source) {
+    case 'env': {
+      return {source: 'env'}
+    }
+
+    case 'global':
+    case 'local': {
+      return {path: resolved.path, source: resolved.source}
+    }
+
+    default: {
+      return {source: 'none'}
+    }
+  }
+}
+
+function humanSourceLine(label: string, resolved: AnyResolved, envVarName: string): string {
+  switch (resolved.source) {
+    case 'env': {
+      return `${label}: environment variable ${envVarName}`
+    }
+
+    case 'global': {
+      return `${label}: global file ${resolved.path}`
+    }
+
+    case 'local': {
+      return `${label}: local file ${resolved.path}`
+    }
+
+    default: {
+      return `${label}: not configured`
+    }
+  }
+}
+
 export default class ConfigWhich extends Command {
-  static description = `Show where the Browserbase API key would be loaded from (no secret printed).
-Resolution order: BROWSERBASE_API_KEY, then project .zurf/config.json (walk-up), then global config in the CLI config directory.`
+  static description = `Show where API keys would be loaded from (no secrets printed).
+Resolution order: env var → project .zurf/config.json (walk-up) → global config.`
   static examples = ['<%= config.bin %> config which', '<%= config.bin %> config which --json']
   static flags = {
     ...zurfBaseFlags,
   }
-  static summary = 'Show where the API key is loaded from'
+  static summary = 'Show where API keys are loaded from'
 
   async run(): Promise<void> {
     const {flags} = await this.parse(ConfigWhich)
-    const resolved = resolveApiKey({globalConfigDir: this.config.configDir})
+    const bbResolved = resolveApiKey({globalConfigDir: this.config.configDir})
+    const pplxResolved = resolvePerplexityApiKey({globalConfigDir: this.config.configDir})
 
     if (flags.json) {
-      switch (resolved.source) {
-        case 'env': {
-          printJson({envVar: 'BROWSERBASE_API_KEY', source: 'env'})
-          break
-        }
+      const payload: Record<string, unknown> = {
+        browserbase: resolvedSource(bbResolved),
+        perplexity: resolvedSource(pplxResolved),
+      }
 
-        case 'global': {
-          printJson({path: resolved.path, source: 'global'})
-          break
-        }
+      if (bbResolved.source === 'none' && pplxResolved.source === 'none') {
+        payload.globalConfigPath = globalConfigFilePath(this.config.configDir)
+        payload.hint = `Run \`${this.config.bin} setup\` or set BROWSERBASE_API_KEY / PERPLEXITY_API_KEY.`
+      }
 
-        case 'local': {
-          printJson({path: resolved.path, source: 'local'})
-          break
-        }
+      printJson(payload)
 
-        case 'none': {
-          printJson({
-            globalConfigPath: globalConfigFilePath(this.config.configDir),
-            hint: `Run \`${this.config.bin} init --global\` or \`${this.config.bin} init --local\`, or set BROWSERBASE_API_KEY.`,
-            source: 'none',
-          })
-          this.exit(1)
-          break
-        }
+      if (bbResolved.source === 'none' && pplxResolved.source === 'none') {
+        this.exit(1)
       }
 
       return
     }
 
-    switch (resolved.source) {
-      case 'env': {
-        this.log('API key source: environment variable BROWSERBASE_API_KEY')
-        break
-      }
+    this.log(humanSourceLine('Browserbase API key', bbResolved, 'BROWSERBASE_API_KEY'))
+    this.log(humanSourceLine('Perplexity API key', pplxResolved, 'PERPLEXITY_API_KEY'))
 
-      case 'global': {
-        this.log(`API key source: global file ${resolved.path}`)
-        break
-      }
-
-      case 'local': {
-        this.log(`API key source: local file ${resolved.path}`)
-        break
-      }
-
-      case 'none': {
-        this.error(
-          `No API key configured. Set BROWSERBASE_API_KEY or run \`${this.config.bin} init --global\` / \`--local\`.`,
-        )
-        break
-      }
+    if (bbResolved.source === 'none' && pplxResolved.source === 'none') {
+      this.error(
+        `No API keys configured. Run \`${this.config.bin} setup\` or set environment variables.`,
+      )
     }
   }
 }
