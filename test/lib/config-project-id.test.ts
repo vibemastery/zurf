@@ -42,11 +42,11 @@ describe('resolveProjectId', () => {
     const zurfDir = path.join(proj, '.zurf')
     fs.mkdirSync(zurfDir, {recursive: true})
     const localFile = path.join(zurfDir, 'config.json')
-    await writeConfig(localFile, {projectId: 'local-proj'})
+    await writeConfig(localFile, {providers: {browserbase: {projectId: 'local-proj'}}})
 
     const g = globalConfigFilePath(globalConfigDir)
     await fs.promises.mkdir(path.dirname(g), {recursive: true})
-    await writeConfig(g, {projectId: 'global-proj'})
+    await writeConfig(g, {providers: {browserbase: {projectId: 'global-proj'}}})
 
     const r = resolveProjectId({cwd: proj, globalConfigDir})
     expect(r).to.deep.include({path: localFile, projectId: 'local-proj', source: 'local'})
@@ -55,12 +55,21 @@ describe('resolveProjectId', () => {
   it('uses global config when no local exists', async () => {
     const g = globalConfigFilePath(globalConfigDir)
     await fs.promises.mkdir(path.dirname(g), {recursive: true})
-    await writeConfig(g, {projectId: 'gp'})
+    await writeConfig(g, {providers: {browserbase: {projectId: 'gp'}}})
     const r = resolveProjectId({cwd: tmp, globalConfigDir})
     expect(r).to.deep.include({projectId: 'gp', source: 'global'})
   })
 
   it('returns none when nothing set', () => {
     expect(resolveProjectId({cwd: tmp, globalConfigDir}).source).to.equal('none')
+  })
+
+  it('auto-migrates old flat shape with projectId', async () => {
+    const g = globalConfigFilePath(globalConfigDir)
+    await fs.promises.mkdir(path.dirname(g), {recursive: true})
+    // Write old flat shape directly
+    fs.writeFileSync(g, JSON.stringify({apiKey: 'old-key', projectId: 'old-proj'}), 'utf8')
+    const r = resolveProjectId({cwd: tmp, globalConfigDir})
+    expect(r).to.deep.include({projectId: 'old-proj', source: 'global'})
   })
 })

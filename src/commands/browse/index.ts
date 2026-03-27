@@ -25,7 +25,7 @@ export default class Browse extends ZurfBrowserbaseCommand {
   }
   static description = `Browse a URL in a cloud browser and return the rendered content as markdown (default) or raw HTML.
 Uses a real Chromium browser via Browserbase, so JavaScript-heavy pages are fully rendered.
-Requires authentication and a Project ID. Run \`zurf init --global\` before first use.`
+Requires authentication and a Project ID. Run \`zurf setup\` before first use.`
   static examples = [
     '<%= config.bin %> <%= command.id %> https://example.com',
     '<%= config.bin %> <%= command.id %> https://example.com --html',
@@ -69,7 +69,7 @@ Requires authentication and a Project ID. Run \`zurf init --global\` before firs
       const resolution = resolveProjectId({globalConfigDir: this.config.configDir})
       if (resolution.source === 'none') {
         throw new Error(
-          'No Browserbase Project ID found. Set BROWSERBASE_PROJECT_ID, run `zurf init --global` with --project-id, or add projectId to your .zurf/config.json.',
+          'No Browserbase Project ID found. Set BROWSERBASE_PROJECT_ID, run `zurf setup` with --project-id, or add projectId to your .zurf/config.json.',
         )
       }
 

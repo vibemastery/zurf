@@ -13,10 +13,25 @@ export type ResolvedApiKey =
 /** Resolved non-empty API key (excludes `none`). */
 export type ActiveApiKey = Extract<ResolvedApiKey, {apiKey: string}>
 
-export interface ConfigFileShape {
+/** Old flat config shape (v0.2.x and earlier). */
+export interface LegacyConfigFileShape {
   apiKey?: string
   format?: 'html' | 'markdown'
   projectId?: string
+}
+
+/** Current config shape (v0.3.0+). */
+export interface ConfigFileShape {
+  format?: 'html' | 'markdown'
+  providers?: {
+    browserbase?: {
+      apiKey?: string
+      projectId?: string
+    }
+    perplexity?: {
+      apiKey?: string
+    }
+  }
 }
 
 export type ResolvedProjectId =
@@ -24,6 +39,9 @@ export type ResolvedProjectId =
   | {path: string; projectId: string; source: 'local'}
   | {projectId: string; source: 'env'}
   | {source: 'none'}
+
+/** Alias — structurally identical to ResolvedApiKey; kept for semantic clarity at call sites. */
+export type ResolvedPerplexityApiKey = ResolvedApiKey
 
 /**
  * Path to global `config.json` under oclif's `this.config.configDir` (same rules as @oclif/core `Config.dir('config')` for `dirname` zurf).
@@ -56,28 +74,58 @@ export function findLocalConfigPath(startDir: string = process.cwd()): string | 
   return undefined
 }
 
-function readConfigFile(filePath: string): ConfigFileShape | undefined {
+/**
+ * Detect whether a parsed config object uses the old flat shape (has `apiKey` at root, no `providers` key).
+ */
+function isLegacyConfig(raw: unknown): raw is LegacyConfigFileShape {
+  if (raw === null || typeof raw !== 'object') return false
+  const obj = raw as Record<string, unknown>
+  return ('apiKey' in obj || 'projectId' in obj) && !('providers' in obj)
+}
+
+/**
+ * Migrate a legacy flat config to the new nested shape.
+ */
+function migrateLegacyConfig(legacy: LegacyConfigFileShape): ConfigFileShape {
+  const config: ConfigFileShape = {}
+
+  if (legacy.apiKey || legacy.projectId) {
+    config.providers = {
+      browserbase: {},
+    }
+    if (legacy.apiKey) config.providers.browserbase!.apiKey = legacy.apiKey
+    if (legacy.projectId) config.providers.browserbase!.projectId = legacy.projectId
+  }
+
+  if (legacy.format) config.format = legacy.format
+
+  return config
+}
+
+export function readConfigFile(filePath: string): ConfigFileShape | undefined {
   try {
     const raw = fs.readFileSync(filePath, 'utf8')
-    return JSON.parse(raw) as ConfigFileShape
+    const parsed = JSON.parse(raw) as unknown
+    if (isLegacyConfig(parsed)) {
+      return migrateLegacyConfig(parsed)
+    }
+
+    return parsed as ConfigFileShape
   } catch {
     return undefined
   }
 }
 
-function readApiKeyFromFile(filePath: string): string | undefined {
+function readStringField(filePath: string, getter: (c: ConfigFileShape) => string | undefined): string | undefined {
   const parsed = readConfigFile(filePath)
   if (!parsed) return undefined
-  const key = typeof parsed.apiKey === 'string' ? parsed.apiKey.trim() : ''
-  return key.length > 0 ? key : undefined
+  const val = getter(parsed)?.trim() ?? ''
+  return val.length > 0 ? val : undefined
 }
 
-function readProjectIdFromFile(filePath: string): string | undefined {
-  const parsed = readConfigFile(filePath)
-  if (!parsed) return undefined
-  const id = typeof parsed.projectId === 'string' ? parsed.projectId.trim() : ''
-  return id.length > 0 ? id : undefined
-}
+const readBrowserbaseApiKeyFromFile = (f: string) => readStringField(f, (c) => c.providers?.browserbase?.apiKey)
+const readBrowserbaseProjectIdFromFile = (f: string) => readStringField(f, (c) => c.providers?.browserbase?.projectId)
+const readPerplexityApiKeyFromFile = (f: string) => readStringField(f, (c) => c.providers?.perplexity?.apiKey)
 
 function readFormatFromFile(filePath: string): 'html' | 'markdown' | undefined {
   const parsed = readConfigFile(filePath)
@@ -118,14 +166,14 @@ export function resolveApiKey(options: {cwd?: string; globalConfigDir: string}):
 
   const localPath = findLocalConfigPath(cwd)
   if (localPath) {
-    const key = readApiKeyFromFile(localPath)
+    const key = readBrowserbaseApiKeyFromFile(localPath)
     if (key) {
       return {apiKey: key, path: localPath, source: 'local'}
     }
   }
 
   const gPath = globalConfigFilePath(options.globalConfigDir)
-  const globalKey = readApiKeyFromFile(gPath)
+  const globalKey = readBrowserbaseApiKeyFromFile(gPath)
   if (globalKey) {
     return {apiKey: globalKey, path: gPath, source: 'global'}
   }
@@ -143,14 +191,14 @@ export function resolveProjectId(options: {cwd?: string; globalConfigDir: string
 
   const localPath = findLocalConfigPath(cwd)
   if (localPath) {
-    const id = readProjectIdFromFile(localPath)
+    const id = readBrowserbaseProjectIdFromFile(localPath)
     if (id) {
       return {path: localPath, projectId: id, source: 'local'}
     }
   }
 
   const gPath = globalConfigFilePath(options.globalConfigDir)
-  const globalId = readProjectIdFromFile(gPath)
+  const globalId = readBrowserbaseProjectIdFromFile(gPath)
   if (globalId) {
     return {path: gPath, projectId: globalId, source: 'global'}
   }
@@ -158,8 +206,33 @@ export function resolveProjectId(options: {cwd?: string; globalConfigDir: string
   return {source: 'none'}
 }
 
+export function resolvePerplexityApiKey(options: {cwd?: string; globalConfigDir: string}): ResolvedPerplexityApiKey {
+  const cwd = options.cwd ?? process.cwd()
+
+  const envKey = process.env.PERPLEXITY_API_KEY?.trim()
+  if (envKey) {
+    return {apiKey: envKey, source: 'env'}
+  }
+
+  const localPath = findLocalConfigPath(cwd)
+  if (localPath) {
+    const key = readPerplexityApiKeyFromFile(localPath)
+    if (key) {
+      return {apiKey: key, path: localPath, source: 'local'}
+    }
+  }
+
+  const gPath = globalConfigFilePath(options.globalConfigDir)
+  const globalKey = readPerplexityApiKeyFromFile(gPath)
+  if (globalKey) {
+    return {apiKey: globalKey, path: gPath, source: 'global'}
+  }
+
+  return {source: 'none'}
+}
+
 export async function writeApiKeyConfig(targetPath: string, apiKey: string): Promise<void> {
-  await writeConfig(targetPath, {apiKey: apiKey.trim()})
+  await writeConfig(targetPath, {providers: {browserbase: {apiKey: apiKey.trim()}}})
 }
 
 export async function writeConfig(targetPath: string, fields: Partial<ConfigFileShape>): Promise<void> {
@@ -169,12 +242,41 @@ export async function writeConfig(targetPath: string, fields: Partial<ConfigFile
   let existing: ConfigFileShape = {}
   try {
     const raw = await fs.promises.readFile(targetPath, 'utf8')
-    existing = JSON.parse(raw) as ConfigFileShape
+    const parsed = JSON.parse(raw) as unknown
+    existing = isLegacyConfig(parsed) ? migrateLegacyConfig(parsed) : parsed as ConfigFileShape;
   } catch {
     // file doesn't exist yet — start fresh
   }
 
-  const merged: ConfigFileShape = {...existing, ...fields}
+  const merged: ConfigFileShape = {
+    ...existing,
+    ...fields,
+    providers: {
+      ...existing.providers,
+      ...fields.providers,
+      browserbase: {
+        ...existing.providers?.browserbase,
+        ...fields.providers?.browserbase,
+      },
+      perplexity: {
+        ...existing.providers?.perplexity,
+        ...fields.providers?.perplexity,
+      },
+    },
+  }
+
+  if (merged.providers?.browserbase && Object.keys(merged.providers.browserbase).length === 0) {
+    delete merged.providers.browserbase
+  }
+
+  if (merged.providers?.perplexity && Object.keys(merged.providers.perplexity).length === 0) {
+    delete merged.providers.perplexity
+  }
+
+  if (merged.providers && Object.keys(merged.providers).length === 0) {
+    delete merged.providers
+  }
+
   const body = `${JSON.stringify(merged, null, 2)}\n`
   await fs.promises.writeFile(targetPath, body, {encoding: 'utf8', mode: 0o600})
 }

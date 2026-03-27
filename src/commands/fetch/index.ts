@@ -23,7 +23,7 @@ export default class Fetch extends ZurfBrowserbaseCommand {
     }),
   }
   static description = `Fetch a URL via Browserbase and return content as markdown (default) or raw HTML (no browser session; static HTML, 1 MB max).
-Requires authentication. Run \`zurf init --global\` or use a project key before first use.`
+Requires authentication. Run \`zurf setup\` or use a project key before first use.`
   static examples = [
     '<%= config.bin %> <%= command.id %> https://example.com',
     '<%= config.bin %> <%= command.id %> https://example.com --html',

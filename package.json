@@ -1,7 +1,7 @@
 {
   "name": "@vibemastery/zurf",
   "description": "A lightweight CLI for searching and fetching web pages, powered by Browserbase.",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "author": "Luis Güette",
   "bin": {
     "zurf": "./bin/run.js"
@@ -9,6 +9,7 @@
   "bugs": "https://github.com/vibemastery/zurf/issues",
   "dependencies": {
     "@browserbasehq/sdk": "^2.9.0",
+    "@inquirer/prompts": "^8.3.2",
     "@oclif/core": "^4",
     "@oclif/plugin-autocomplete": "^3.2.42",
     "@oclif/plugin-help": "^6",
@@ -73,8 +74,8 @@
       "config": {
         "description": "Inspect zurf configuration"
       },
-      "init": {
-        "description": "Configure Browserbase API key storage"
+      "setup": {
+        "description": "Configure API keys for Browserbase and Perplexity"
       }
     }
   },
