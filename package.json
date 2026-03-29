@@ -1,7 +1,7 @@
 {
   "name": "@vibemastery/zurf",
-  "description": "A lightweight CLI for searching and fetching web pages, powered by Browserbase.",
-  "version": "0.3.0",
+  "description": "A CLI toolkit for AI agents to search the web, browse pages, fetch content, ask questions, and transcribe video — powered by Browserbase, Perplexity, and Supadata.",
+  "version": "0.4.0",
   "author": "Luis Güette",
   "bin": {
     "zurf": "./bin/run.js"
@@ -50,7 +50,9 @@
     "oclif",
     "browserbase",
     "web-search",
-    "cli"
+    "cli",
+    "supadata",
+    "transcript"
   ],
   "license": "MIT",
   "main": "dist/index.js",
@@ -75,7 +77,7 @@
         "description": "Inspect zurf configuration"
       },
       "setup": {
-        "description": "Configure API keys for Browserbase and Perplexity"
+        "description": "Configure API keys for Browserbase, Perplexity, and Supadata"
       }
     }
   },
