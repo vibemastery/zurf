@@ -31,6 +31,9 @@ export interface ConfigFileShape {
     perplexity?: {
       apiKey?: string
     }
+    supadata?: {
+      apiKey?: string
+    }
   }
 }
 
@@ -42,6 +45,9 @@ export type ResolvedProjectId =
 
 /** Alias — structurally identical to ResolvedApiKey; kept for semantic clarity at call sites. */
 export type ResolvedPerplexityApiKey = ResolvedApiKey
+
+/** Alias — structurally identical to ResolvedApiKey; kept for semantic clarity at call sites. */
+export type ResolvedSupadataApiKey = ResolvedApiKey
 
 /**
  * Path to global `config.json` under oclif's `this.config.configDir` (same rules as @oclif/core `Config.dir('config')` for `dirname` zurf).
@@ -126,6 +132,7 @@ function readStringField(filePath: string, getter: (c: ConfigFileShape) => strin
 const readBrowserbaseApiKeyFromFile = (f: string) => readStringField(f, (c) => c.providers?.browserbase?.apiKey)
 const readBrowserbaseProjectIdFromFile = (f: string) => readStringField(f, (c) => c.providers?.browserbase?.projectId)
 const readPerplexityApiKeyFromFile = (f: string) => readStringField(f, (c) => c.providers?.perplexity?.apiKey)
+const readSupadataApiKeyFromFile = (f: string) => readStringField(f, (c) => c.providers?.supadata?.apiKey)
 
 function readFormatFromFile(filePath: string): 'html' | 'markdown' | undefined {
   const parsed = readConfigFile(filePath)
@@ -231,6 +238,31 @@ export function resolvePerplexityApiKey(options: {cwd?: string; globalConfigDir:
   return {source: 'none'}
 }
 
+export function resolveSupadataApiKey(options: {cwd?: string; globalConfigDir: string}): ResolvedSupadataApiKey {
+  const cwd = options.cwd ?? process.cwd()
+
+  const envKey = process.env.SUPADATA_API_KEY?.trim()
+  if (envKey) {
+    return {apiKey: envKey, source: 'env'}
+  }
+
+  const localPath = findLocalConfigPath(cwd)
+  if (localPath) {
+    const key = readSupadataApiKeyFromFile(localPath)
+    if (key) {
+      return {apiKey: key, path: localPath, source: 'local'}
+    }
+  }
+
+  const gPath = globalConfigFilePath(options.globalConfigDir)
+  const globalKey = readSupadataApiKeyFromFile(gPath)
+  if (globalKey) {
+    return {apiKey: globalKey, path: gPath, source: 'global'}
+  }
+
+  return {source: 'none'}
+}
+
 export async function writeApiKeyConfig(targetPath: string, apiKey: string): Promise<void> {
   await writeConfig(targetPath, {providers: {browserbase: {apiKey: apiKey.trim()}}})
 }
@@ -262,6 +294,10 @@ export async function writeConfig(targetPath: string, fields: Partial<ConfigFile
         ...existing.providers?.perplexity,
         ...fields.providers?.perplexity,
       },
+      supadata: {
+        ...existing.providers?.supadata,
+        ...fields.providers?.supadata,
+      },
     },
   }
 
@@ -271,6 +307,10 @@ export async function writeConfig(targetPath: string, fields: Partial<ConfigFile
 
   if (merged.providers?.perplexity && Object.keys(merged.providers.perplexity).length === 0) {
     delete merged.providers.perplexity
+  }
+
+  if (merged.providers?.supadata && Object.keys(merged.providers.supadata).length === 0) {
+    delete merged.providers.supadata
   }
 
   if (merged.providers && Object.keys(merged.providers).length === 0) {

@@ -20,7 +20,7 @@ export async function selectScope(): Promise<ConfigScope> {
 
 export async function selectProviders(providers: ProviderChoice[]): Promise<string[]> {
   const choices = providers.map((p) => ({
-    checked: p.configured,
+    checked: !p.configured,
     name: p.configured ? `${p.name} [configured]` : p.name,
     value: p.value,
   }))

@@ -9,12 +9,13 @@ import {
   localConfigPathForCwd,
   resolveApiKey,
   resolvePerplexityApiKey,
+  resolveSupadataApiKey,
   writeApiKeyConfig,
   writeConfig,
 } from '../../src/lib/config.js'
 import {captureEnv, restoreEnv} from '../helpers/env-sandbox.js'
 
-const ENV_KEYS = ['BROWSERBASE_API_KEY', 'HOME', 'PERPLEXITY_API_KEY', 'XDG_CONFIG_HOME'] as const
+const ENV_KEYS = ['BROWSERBASE_API_KEY', 'HOME', 'PERPLEXITY_API_KEY', 'SUPADATA_API_KEY', 'XDG_CONFIG_HOME'] as const
 
 describe('config', () => {
   let tmp: string
@@ -28,6 +29,7 @@ describe('config', () => {
     process.env.HOME = tmp
     delete process.env.BROWSERBASE_API_KEY
     delete process.env.PERPLEXITY_API_KEY
+    delete process.env.SUPADATA_API_KEY
     globalConfigDir = path.join(process.env.XDG_CONFIG_HOME, 'zurf')
   })
 
@@ -138,6 +140,36 @@ describe('config', () => {
 
     it('returns none when not set', () => {
       expect(resolvePerplexityApiKey({globalConfigDir}).source).to.equal('none')
+    })
+  })
+
+  describe('resolveSupadataApiKey', () => {
+    it('uses SUPADATA_API_KEY env var', () => {
+      process.env.SUPADATA_API_KEY = 'sd-from-env'
+      const r = resolveSupadataApiKey({globalConfigDir})
+      expect(r).to.deep.include({apiKey: 'sd-from-env', source: 'env'})
+    })
+
+    it('reads from local config file', async () => {
+      const proj = path.join(tmp, 'sd-proj')
+      const zurfDir = path.join(proj, '.zurf')
+      fs.mkdirSync(zurfDir, {recursive: true})
+      const localFile = path.join(zurfDir, 'config.json')
+      await writeConfig(localFile, {providers: {supadata: {apiKey: 'sd-local'}}})
+      const r = resolveSupadataApiKey({cwd: proj, globalConfigDir})
+      expect(r).to.deep.include({apiKey: 'sd-local', path: localFile, source: 'local'})
+    })
+
+    it('reads from global config file', async () => {
+      const g = globalConfigFilePath(globalConfigDir)
+      await fs.promises.mkdir(path.dirname(g), {recursive: true})
+      await writeConfig(g, {providers: {supadata: {apiKey: 'sd-global'}}})
+      const r = resolveSupadataApiKey({globalConfigDir})
+      expect(r).to.deep.include({apiKey: 'sd-global', source: 'global'})
+    })
+
+    it('returns none when not set', () => {
+      expect(resolveSupadataApiKey({globalConfigDir}).source).to.equal('none')
     })
   })
 })

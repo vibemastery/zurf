@@ -1,7 +1,7 @@
 zurf
 =================
 
-A lightweight CLI for searching, browsing, and fetching web pages (Browserbase) and asking AI-powered questions with web citations (Perplexity Sonar).
+A CLI toolkit for AI agents to search the web, browse pages, fetch content, ask questions, and transcribe video — powered by Browserbase, Perplexity, and Supadata.
 
 
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
@@ -12,7 +12,7 @@ A lightweight CLI for searching, browsing, and fetching web pages (Browserbase) 
 
 ```sh-session
 $ npm install -g @vibemastery/zurf
-$ zurf setup                       # configure API keys (Browserbase, Perplexity)
+$ zurf setup                       # configure API keys (Browserbase, Perplexity, Supadata)
 $ zurf --help
 ```
 
@@ -37,6 +37,26 @@ $ zurf ask "What is oclif?" --no-citations
 | `--recency <hour\|day\|week\|month\|year>` | Filter sources by recency |
 | `--domains <list>` | Restrict search to these domains (comma-separated) |
 | `--no-citations` | Hide the sources list after the answer |
+| `--json` | Print machine-readable JSON to stdout |
+
+### `zurf transcript <url>`
+
+Fetch a video transcript from YouTube, TikTok, Instagram, X, Facebook, or a public file URL via Supadata. Returns timestamped segments by default, or plain text with `--text`.
+
+```sh-session
+$ zurf transcript https://www.youtube.com/watch?v=dQw4w9WgXcQ
+$ zurf transcript https://www.tiktok.com/@user/video/123 --text
+$ zurf transcript https://www.youtube.com/watch?v=abc --lang en --mode native
+$ zurf transcript https://www.youtube.com/watch?v=abc --output transcript.txt
+$ zurf transcript https://www.youtube.com/watch?v=abc --json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--lang <code>` | Preferred language (ISO 639-1 code) |
+| `--mode <native\|generate\|auto>` | Transcript mode: native (captions only), generate (AI), auto (try native first). Default: auto |
+| `--text` | Return plain text instead of timestamped segments |
+| `-o, --output` | Write transcript to a file |
 | `--json` | Print machine-readable JSON to stdout |
 
 ### `zurf search <query>`
@@ -95,7 +115,7 @@ $ zurf fetch https://example.com --json        # JSON with content + metadata
 
 ### `zurf setup`
 
-Interactive wizard to configure API keys for all providers (Browserbase, Perplexity). Stores keys in global or local config. Re-run to update or add providers.
+Interactive wizard to configure API keys for all providers (Browserbase, Perplexity, Supadata). Stores keys in global or local config. Re-run to update or add providers.
 
 ```sh-session
 $ zurf setup                # interactive wizard
@@ -105,7 +125,7 @@ $ zurf setup --local        # skip scope prompt, save to project .zurf/config.js
 
 ### `zurf config which`
 
-Show where your API keys would be loaded from (nothing secret is printed). Shows resolution for both Browserbase and Perplexity.
+Show where your API keys would be loaded from (nothing secret is printed). Shows resolution for Browserbase, Perplexity, and Supadata.
 
 ```sh-session
 $ zurf config which
@@ -143,6 +163,9 @@ Format resolution (highest precedence first):
     },
     "perplexity": {
       "apiKey": "pplx-..."
+    },
+    "supadata": {
+      "apiKey": "sd_..."
     }
   },
   "format": "markdown"
@@ -164,6 +187,11 @@ Each provider resolves its key independently (highest precedence first):
 1. Environment variable `PERPLEXITY_API_KEY`
 2. Nearest `.zurf/config.json` → `providers.perplexity.apiKey`
 3. Global config → `providers.perplexity.apiKey`
+
+**Supadata:**
+1. Environment variable `SUPADATA_API_KEY`
+2. Nearest `.zurf/config.json` → `providers.supadata.apiKey`
+3. Global config → `providers.supadata.apiKey`
 
 Save keys interactively:
 
@@ -189,6 +217,7 @@ $ zurf search "browserbase fetch api" --json
 $ zurf browse https://example.com --json
 $ zurf fetch https://example.com --json
 $ zurf ask "What is Browserbase?" --json
+$ zurf transcript https://www.youtube.com/watch?v=abc --json
 ```
 
 Content is returned as markdown by default, which keeps token counts low. Pass `--html` if the agent needs the raw DOM.
