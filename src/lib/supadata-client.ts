@@ -103,7 +103,6 @@ export class SupadataClient {
         throw new Error(`Supadata transcript job failed: ${data.error ?? 'unknown error'}`)
       }
 
-      // queued or active — wait 1s and retry
       // eslint-disable-next-line no-await-in-loop
       await new Promise((resolve) => {
         setTimeout(resolve, 1000)

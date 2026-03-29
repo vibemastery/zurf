@@ -8,7 +8,6 @@ import {
   createSupadataClient,
   MissingSupadataKeyError,
   type SupadataTranscriptMode,
-  type SupadataTranscriptResult,
   type SupadataTranscriptSegment,
 } from '../../lib/supadata-client.js'
 
@@ -79,35 +78,22 @@ Returns timestamped segments by default, or plain text with --text.`
       throw error
     }
 
-    const doWork = async (): Promise<SupadataTranscriptResult> => client.transcript({
+    const transcriptOptions = {
       lang: flags.lang,
       mode: flags.mode as SupadataTranscriptMode,
       text: flags.text,
       url: args.url,
-    })
-
-    let result: SupadataTranscriptResult
-    if (flags.json) {
-      try {
-        result = await doWork()
-      } catch (error) {
-        cliError({command: this, exitCode: 1, json: flags.json, message: errorMessage(error)})
-        return
-      }
-    } else {
-      ux.action.start('Fetching transcript')
-      try {
-        result = await doWork()
-      } catch (error) {
-        cliError({command: this, exitCode: 1, json: flags.json, message: errorMessage(error)})
-        return
-      } finally {
-        ux.action.stop()
-      }
     }
 
-    // Output
     if (flags.json) {
+      let result
+      try {
+        result = await client.transcript(transcriptOptions)
+      } catch (error) {
+        cliError({command: this, exitCode: 1, json: flags.json, message: errorMessage(error)})
+        return
+      }
+
       printJson({
         availableLangs: result.availableLangs,
         content: result.content,
@@ -116,6 +102,17 @@ Returns timestamped segments by default, or plain text with --text.`
         url: args.url,
       })
       return
+    }
+
+    ux.action.start('Fetching transcript')
+    let result
+    try {
+      result = await client.transcript(transcriptOptions)
+    } catch (error) {
+      cliError({command: this, exitCode: 1, json: flags.json, message: errorMessage(error)})
+      return
+    } finally {
+      ux.action.stop()
     }
 
     const outputText = typeof result.content === 'string'
@@ -128,7 +125,6 @@ Returns timestamped segments by default, or plain text with --text.`
       return
     }
 
-    // Human mode
     this.log(outputText)
 
     if (result.lang) {
