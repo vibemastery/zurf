@@ -34,6 +34,9 @@ export interface ConfigFileShape {
     supadata?: {
       apiKey?: string
     }
+    tavily?: {
+      apiKey?: string
+    }
   }
 }
 
@@ -298,6 +301,10 @@ export async function writeConfig(targetPath: string, fields: Partial<ConfigFile
         ...existing.providers?.supadata,
         ...fields.providers?.supadata,
       },
+      tavily: {
+        ...existing.providers?.tavily,
+        ...fields.providers?.tavily,
+      },
     },
   }
 
@@ -311,6 +318,10 @@ export async function writeConfig(targetPath: string, fields: Partial<ConfigFile
 
   if (merged.providers?.supadata && Object.keys(merged.providers.supadata).length === 0) {
     delete merged.providers.supadata
+  }
+
+  if (merged.providers?.tavily && Object.keys(merged.providers.tavily).length === 0) {
+    delete merged.providers.tavily
   }
 
   if (merged.providers && Object.keys(merged.providers).length === 0) {

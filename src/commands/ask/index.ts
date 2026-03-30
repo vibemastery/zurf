@@ -6,9 +6,11 @@ import {printJson} from '../../lib/json-output.js'
 import {
   createPerplexityClient,
   MissingPerplexityKeyError,
+  type PerplexityAskResult,
   type PerplexityDepth,
   type PerplexityRecency,
 } from '../../lib/perplexity-client.js'
+import {createTavilyAskClient, MissingTavilyKeyError} from '../../lib/tavily-ask-client.js'
 
 export default class Ask extends Command {
   static args = {
@@ -42,6 +44,11 @@ Returns an answer with inline citations and a sources list. Use --depth deep for
       description: 'Restrict search to these domains (comma-separated)',
     }),
     json: zurfJsonFlag,
+    provider: Flags.string({
+      default: 'perplexity',
+      description: 'Q&A provider to use',
+      options: ['perplexity', 'tavily'],
+    }),
     recency: Flags.string({
       description: 'Filter sources by recency',
       options: ['hour', 'day', 'week', 'month', 'year'],
@@ -57,26 +64,48 @@ Returns an answer with inline citations and a sources list. Use --depth deep for
       cliError({command: this, exitCode: 2, json: flags.json, message: 'Question must not be empty.'})
     }
 
-    let client
-    try {
-      ;({client} = createPerplexityClient({globalConfigDir: this.config.configDir}))
-    } catch (error) {
-      if (error instanceof MissingPerplexityKeyError) {
-        cliError({command: this, exitCode: 1, json: flags.json, message: error.message})
-      }
-
-      throw error
-    }
-
+    const useTavily = flags.provider === 'tavily'
     const domains = flags.domains?.split(',').map((d) => d.trim()).filter(Boolean)
 
     const doWork = async () => {
-      const result = await client.ask({
-        depth: flags.depth as PerplexityDepth,
-        domains,
-        question,
-        recency: flags.recency as PerplexityRecency | undefined,
-      })
+      let result: PerplexityAskResult
+
+      if (useTavily) {
+        let tavilyClient
+        try {
+          ;({client: tavilyClient} = createTavilyAskClient({globalConfigDir: this.config.configDir}))
+        } catch (error) {
+          if (error instanceof MissingTavilyKeyError) {
+            cliError({command: this, exitCode: 1, json: flags.json, message: error.message})
+          }
+
+          throw error
+        }
+
+        result = await tavilyClient.ask({
+          domains,
+          question,
+          recency: flags.recency,
+        })
+      } else {
+        let perplexityClient
+        try {
+          ;({client: perplexityClient} = createPerplexityClient({globalConfigDir: this.config.configDir}))
+        } catch (error) {
+          if (error instanceof MissingPerplexityKeyError) {
+            cliError({command: this, exitCode: 1, json: flags.json, message: error.message})
+          }
+
+          throw error
+        }
+
+        result = await perplexityClient.ask({
+          depth: flags.depth as PerplexityDepth,
+          domains,
+          question,
+          recency: flags.recency as PerplexityRecency | undefined,
+        })
+      }
 
       if (flags.json) {
         printJson({answer: result.answer, citations: result.citations, model: result.model, query: question})
@@ -104,7 +133,7 @@ Returns an answer with inline citations and a sources list. Use --depth deep for
       return
     }
 
-    ux.action.start('Asking Perplexity')
+    ux.action.start(useTavily ? 'Asking Tavily' : 'Asking Perplexity')
     try {
       await doWork()
     } catch (error) {
