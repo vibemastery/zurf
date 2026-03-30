@@ -7,7 +7,7 @@ import path from 'node:path'
 import {captureEnv, restoreEnv} from '../helpers/env-sandbox.js'
 import {packageRoot} from '../helpers/package-root.js'
 
-const ENV_KEYS = ['PERPLEXITY_API_KEY', 'XDG_CONFIG_HOME'] as const
+const ENV_KEYS = ['PERPLEXITY_API_KEY', 'TAVILY_API_KEY', 'XDG_CONFIG_HOME'] as const
 
 describe('ask', () => {
   let xdg: string
@@ -18,6 +18,7 @@ describe('ask', () => {
     xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'zurf-ask-'))
     process.env.XDG_CONFIG_HOME = xdg
     delete process.env.PERPLEXITY_API_KEY
+    delete process.env.TAVILY_API_KEY
   })
 
   afterEach(() => {
@@ -54,5 +55,21 @@ describe('ask', () => {
     const {error} = await runCommand('ask "test" --recency invalid', packageRoot)
     expect(error).to.be.instanceOf(Error)
     expect(error?.message).to.contain('Expected --recency=invalid to be one of: hour, day, week, month, year')
+  })
+
+  it('rejects invalid provider value', async () => {
+    const {error} = await runCommand('ask "test" --provider invalid', packageRoot)
+    expect(error).to.be.instanceOf(Error)
+    expect(error?.message).to.contain('Expected --provider=invalid to be one of: perplexity, tavily')
+  })
+
+  it('errors when Tavily API key is missing with helpful message', async () => {
+    const {error, stdout} = await runCommand('ask "test question" --provider tavily --json', packageRoot)
+    expect(error).to.be.instanceOf(Error)
+    const output = stdout.trim()
+    if (output) {
+      const j = JSON.parse(output)
+      expect(j.error.message).to.contain('No Tavily API key found')
+    }
   })
 })

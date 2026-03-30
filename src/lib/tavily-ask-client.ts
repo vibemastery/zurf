@@ -1,4 +1,4 @@
-import {type TavilyClient, tavily} from '@tavily/core'
+import {type TavilyClient, type TavilySearchOptions, tavily} from '@tavily/core'
 
 import {type ResolvedApiKey, resolveTavilyApiKey} from './config.js'
 import type {PerplexityAskResult} from './perplexity-client.js'
@@ -22,8 +22,9 @@ export class MissingTavilyKeyError extends Error {
   }
 }
 
-const RECENCY_TO_TIME_RANGE: Record<string, string> = {
+const RECENCY_TO_TIME_RANGE: Record<string, TavilySearchOptions['timeRange']> = {
   day: 'day',
+  // Tavily does not support hourly resolution; map to 'day'
   hour: 'day',
   month: 'month',
   week: 'week',
@@ -38,10 +39,10 @@ export class TavilyAskClient {
   }
 
   async ask(options: TavilyAskOptions): Promise<PerplexityAskResult> {
-    const searchOptions: Record<string, unknown> = {
+    const searchOptions: TavilySearchOptions = {
       includeAnswer: true,
       maxResults: 5,
-      searchDepth: 'advanced' as const,
+      searchDepth: 'advanced',
     }
 
     if (options.recency && RECENCY_TO_TIME_RANGE[options.recency]) {
@@ -55,7 +56,7 @@ export class TavilyAskClient {
     const response = await this.client.search(options.question, searchOptions)
 
     const answer = response.answer ?? ''
-    const citations = response.results.map((r: {url: string}) => r.url)
+    const citations = response.results.map((r) => r.url)
 
     return {answer, citations, model: 'tavily'}
   }
