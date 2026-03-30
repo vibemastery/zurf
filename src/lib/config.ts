@@ -52,6 +52,9 @@ export type ResolvedPerplexityApiKey = ResolvedApiKey
 /** Alias — structurally identical to ResolvedApiKey; kept for semantic clarity at call sites. */
 export type ResolvedSupadataApiKey = ResolvedApiKey
 
+/** Alias — structurally identical to ResolvedApiKey; kept for semantic clarity at call sites. */
+export type ResolvedTavilyApiKey = ResolvedApiKey
+
 /**
  * Path to global `config.json` under oclif's `this.config.configDir` (same rules as @oclif/core `Config.dir('config')` for `dirname` zurf).
  */
@@ -136,6 +139,7 @@ const readBrowserbaseApiKeyFromFile = (f: string) => readStringField(f, (c) => c
 const readBrowserbaseProjectIdFromFile = (f: string) => readStringField(f, (c) => c.providers?.browserbase?.projectId)
 const readPerplexityApiKeyFromFile = (f: string) => readStringField(f, (c) => c.providers?.perplexity?.apiKey)
 const readSupadataApiKeyFromFile = (f: string) => readStringField(f, (c) => c.providers?.supadata?.apiKey)
+const readTavilyApiKeyFromFile = (f: string) => readStringField(f, (c) => c.providers?.tavily?.apiKey)
 
 function readFormatFromFile(filePath: string): 'html' | 'markdown' | undefined {
   const parsed = readConfigFile(filePath)
@@ -259,6 +263,31 @@ export function resolveSupadataApiKey(options: {cwd?: string; globalConfigDir: s
 
   const gPath = globalConfigFilePath(options.globalConfigDir)
   const globalKey = readSupadataApiKeyFromFile(gPath)
+  if (globalKey) {
+    return {apiKey: globalKey, path: gPath, source: 'global'}
+  }
+
+  return {source: 'none'}
+}
+
+export function resolveTavilyApiKey(options: {cwd?: string; globalConfigDir: string}): ResolvedTavilyApiKey {
+  const cwd = options.cwd ?? process.cwd()
+
+  const envKey = process.env.TAVILY_API_KEY?.trim()
+  if (envKey) {
+    return {apiKey: envKey, source: 'env'}
+  }
+
+  const localPath = findLocalConfigPath(cwd)
+  if (localPath) {
+    const key = readTavilyApiKeyFromFile(localPath)
+    if (key) {
+      return {apiKey: key, path: localPath, source: 'local'}
+    }
+  }
+
+  const gPath = globalConfigFilePath(options.globalConfigDir)
+  const globalKey = readTavilyApiKeyFromFile(gPath)
   if (globalKey) {
     return {apiKey: globalKey, path: gPath, source: 'global'}
   }

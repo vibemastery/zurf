@@ -15,12 +15,12 @@ import {createTavilyAskClient, MissingTavilyKeyError} from '../../lib/tavily-ask
 export default class Ask extends Command {
   static args = {
     question: Args.string({
-      description: 'The question to ask Perplexity',
+      description: 'The question to ask',
       required: true,
     }),
   }
-  static description = `Ask a question and get an AI-powered answer with web citations via Perplexity Sonar.
-Returns an answer with inline citations and a sources list. Use --depth deep for more thorough research.`
+  static description = `Ask a question and get an AI-powered answer with web citations via Perplexity Sonar or Tavily.
+Returns an answer with inline citations and a sources list. Use --provider to select the backend.`
   static examples = [
     '<%= config.bin %> <%= command.id %> "What is Browserbase?"',
     '<%= config.bin %> <%= command.id %> "latest tech news" --recency day',
@@ -37,7 +37,7 @@ Returns an answer with inline citations and a sources list. Use --depth deep for
     }),
     depth: Flags.string({
       default: 'quick',
-      description: 'Search depth: quick (sonar) or deep (sonar-pro)',
+      description: 'Search depth: quick (sonar) or deep (sonar-pro). Ignored when --provider tavily.',
       options: ['quick', 'deep'],
     }),
     domains: Flags.string({
@@ -54,7 +54,7 @@ Returns an answer with inline citations and a sources list. Use --depth deep for
       options: ['hour', 'day', 'week', 'month', 'year'],
     }),
   }
-  static summary = 'Ask a question via Perplexity Sonar'
+  static summary = 'Ask a question via Perplexity Sonar or Tavily'
 
   async run(): Promise<void> {
     const {args, flags} = await this.parse(Ask)
@@ -65,6 +65,11 @@ Returns an answer with inline citations and a sources list. Use --depth deep for
     }
 
     const useTavily = flags.provider === 'tavily'
+
+    if (useTavily && flags.depth !== 'quick') {
+      this.warn('--depth is ignored when --provider tavily is used (Tavily always uses advanced search depth)')
+    }
+
     const domains = flags.domains?.split(',').map((d) => d.trim()).filter(Boolean)
 
     const doWork = async () => {

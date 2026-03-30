@@ -1,6 +1,6 @@
-import {tavily} from '@tavily/core'
+import {type TavilyClient, tavily} from '@tavily/core'
 
-import {type ResolvedApiKey, findLocalConfigPath, globalConfigFilePath, readConfigFile} from './config.js'
+import {type ResolvedApiKey, resolveTavilyApiKey} from './config.js'
 import type {PerplexityAskResult} from './perplexity-client.js'
 
 export interface TavilyAskOptions {
@@ -22,38 +22,6 @@ export class MissingTavilyKeyError extends Error {
   }
 }
 
-const readTavilyApiKeyFromFile = (filePath: string): string | undefined => {
-  const parsed = readConfigFile(filePath)
-  if (!parsed) return undefined
-  const val = parsed.providers?.tavily?.apiKey?.trim() ?? ''
-  return val.length > 0 ? val : undefined
-}
-
-export function resolveTavilyApiKey(options: {cwd?: string; globalConfigDir: string}): ResolvedApiKey {
-  const cwd = options.cwd ?? process.cwd()
-
-  const envKey = process.env.TAVILY_API_KEY?.trim()
-  if (envKey) {
-    return {apiKey: envKey, source: 'env'}
-  }
-
-  const localPath = findLocalConfigPath(cwd)
-  if (localPath) {
-    const key = readTavilyApiKeyFromFile(localPath)
-    if (key) {
-      return {apiKey: key, path: localPath, source: 'local'}
-    }
-  }
-
-  const gPath = globalConfigFilePath(options.globalConfigDir)
-  const globalKey = readTavilyApiKeyFromFile(gPath)
-  if (globalKey) {
-    return {apiKey: globalKey, path: gPath, source: 'global'}
-  }
-
-  return {source: 'none'}
-}
-
 const RECENCY_TO_TIME_RANGE: Record<string, string> = {
   day: 'day',
   hour: 'day',
@@ -63,15 +31,13 @@ const RECENCY_TO_TIME_RANGE: Record<string, string> = {
 }
 
 export class TavilyAskClient {
-  private readonly apiKey: string
+  private readonly client: TavilyClient
 
   constructor(apiKey: string) {
-    this.apiKey = apiKey
+    this.client = tavily({apiKey})
   }
 
   async ask(options: TavilyAskOptions): Promise<PerplexityAskResult> {
-    const client = tavily({apiKey: this.apiKey})
-
     const searchOptions: Record<string, unknown> = {
       includeAnswer: true,
       maxResults: 5,
@@ -86,7 +52,7 @@ export class TavilyAskClient {
       searchOptions.includeDomains = options.domains
     }
 
-    const response = await client.search(options.question, searchOptions)
+    const response = await this.client.search(options.question, searchOptions)
 
     const answer = response.answer ?? ''
     const citations = response.results.map((r: {url: string}) => r.url)
