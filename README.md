@@ -208,6 +208,16 @@ For project-local storage, add `.zurf/` to `.gitignore` so keys are never commit
 - Config files auto-migrate from the old flat shape (`{ "apiKey": "..." }`) to the new nested shape. No manual changes needed.
 - `zurf init` has been replaced by `zurf setup`. The setup wizard supports multiple providers.
 
+## Agent Skill
+
+Zurf ships a [skills.sh](https://skills.sh/)-compatible skill that teaches AI coding agents (Claude Code, Codex, Cursor, etc.) how to use every command. Install it with:
+
+```sh-session
+$ npx skills add vibemastery/zurf
+```
+
+The skill uses progressive disclosure: agents load a lean routing file first, then read detailed per-command references only when needed — keeping context usage low.
+
 ## Claude Code and agents
 
 Install `zurf` on your `PATH` and allow the agent to run shell commands. Use `--json` when you want structured output:
